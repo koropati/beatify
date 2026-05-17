@@ -46,28 +46,32 @@ jobs:
           DATABASE_URL=${{ secrets.DATABASE_URL }}
           EOF
 
-      - name: Copy backend files to server via SCP
+      - name: Create deployment archive
+        run: |
+          cd backend
+          tar --exclude='.git' \
+              --exclude='__pycache__' \
+              --exclude='*.pyc' \
+              --exclude='.env.example' \
+              --exclude='venv' \
+              --exclude='.venv' \
+              --exclude='*.db' \
+              --exclude='test_beatify.db' \
+              --exclude='tests' \
+              --exclude='setup_github_secrets.py' \
+              -czf ../deploy.tar.gz .
+
+      - name: Upload archive to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
           port: ${{ secrets.PORT }}
-          source: "backend"
-          target: ${{ secrets.APP_DIR }}
-          rm: false
-          exclude: |
-            backend/.git
-            backend/__pycache__
-            backend/*.pyc
-            backend/.env.example
-            backend/venv
-            backend/.venv
-            backend/*.db
-            backend/test_beatify.db
-            backend/tests
+          source: "deploy.tar.gz"
+          target: "/tmp"
 
-      - name: Install dependencies, seed database, and restart app
+      - name: Extract, install dependencies, seed, and restart
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
@@ -75,10 +79,11 @@ jobs:
           password: ${{ secrets.PASSWORD }}
           port: ${{ secrets.PORT }}
           script: |
+            tar -xzf /tmp/deploy.tar.gz -C ${{ secrets.APP_DIR }}/
+            rm -f /tmp/deploy.tar.gz
             source ${{ secrets.VENV_PATH }}
-            cd ${{ secrets.APP_DIR }}/backend
+            cd ${{ secrets.APP_DIR }}
             pip install -r requirements.txt
-            mkdir -p media
-            mkdir -p tmp
+            mkdir -p media tmp
             python seed.py
             touch tmp/restart.txt
