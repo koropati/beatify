@@ -1,0 +1,63 @@
+from pydantic import BaseModel, EmailStr
+from typing import Optional, List
+
+# --- Tokens ---
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+
+# --- User ---
+class UserBase(BaseModel):
+    email: EmailStr
+    username: str
+
+class UserCreate(UserBase):
+    password: str
+
+class User(UserBase):
+    id: int
+    profile_picture_url: Optional[str] = None
+    role: str
+    is_verified: bool
+
+    class Config:
+        from_attributes = True
+
+# --- Song ---
+class SongBase(BaseModel):
+    title: str
+    artist: str
+    album: Optional[str] = None
+    duration: int
+
+class SongCreate(SongBase):
+    file_path: str
+    cover_image_path: Optional[str] = None
+    owner_id: Optional[int] = None
+
+class Song(SongBase):
+    id: int
+    file_url: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    owner_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+# --- Playlist ---
+class PlaylistBase(BaseModel):
+    name: str
+
+class PlaylistCreate(PlaylistBase):
+    pass
+
+class Playlist(PlaylistBase):
+    id: int
+    owner_id: int
+    songs: List[Song] = []
+
+    class Config:
+        from_attributes = True
