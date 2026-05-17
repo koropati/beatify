@@ -1,96 +1,177 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio/just_audio.dart';
 import '../providers/music_providers.dart';
 
 class PlayerPage extends ConsumerWidget {
   const PlayerPage({super.key});
 
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString();
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentSong = ref.watch(currentSongProvider);
     final isPlaying = ref.watch(isPlayingProvider);
-    final playerController = ref.watch(audioPlayerControllerProvider);
+    final shuffleMode = ref.watch(shuffleModeProvider);
+    final repeatMode = ref.watch(repeatModeProvider);
+    final controller = ref.watch(audioPlayerControllerProvider);
+    final audioPlayer = ref.watch(audioPlayerProvider);
 
     if (currentSong == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Now Playing')),
-        body: const Center(child: Text('No song playing')),
+        backgroundColor: const Color(0xFF121212),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          leading: IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 32),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: const Center(
+          child: Text('No song playing', style: TextStyle(color: Color(0xFFB3B3B3))),
+        ),
       );
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text('Now Playing'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.keyboard_arrow_down),
+          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 32),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        title: const Column(
+          children: [
+            Text(
+              'NOW PLAYING',
+              style: TextStyle(color: Color(0xFFB3B3B3), fontSize: 11, letterSpacing: 1.5),
+            ),
+          ],
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onPressed: () {},
+          ),
+        ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Album Art
-            Container(
-              width: MediaQuery.of(context).size.width - 48,
-              height: MediaQuery.of(context).size.width - 48,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade800,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black45,
-                    offset: Offset(0, 8),
-                    blurRadius: 15,
+            const SizedBox(height: 24),
+            // Album art
+            Expanded(
+              flex: 5,
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF282828),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black54, blurRadius: 40, offset: Offset(0, 16)),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: currentSong.coverImageUrl != null
+                          ? Image.network(
+                              currentSong.coverImageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stack) => const Icon(
+                                Icons.music_note, size: 80, color: Color(0xFFB3B3B3),
+                              ),
+                            )
+                          : const Icon(Icons.music_note, size: 80, color: Color(0xFFB3B3B3)),
+                    ),
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: currentSong.coverImageUrl != null
-                    ? Image.network(currentSong.coverImageUrl!, fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.music_note, size: 100, color: Colors.white54))
-                    : const Icon(Icons.music_note, size: 100, color: Colors.white54),
+                ),
               ),
             ),
             const SizedBox(height: 32),
-            // Song Info
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                currentSong.title,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                currentSong.artist,
-                style: TextStyle(fontSize: 18, color: Colors.grey.shade400),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 32),
-            // Progress Bar (Mocked for MVP, would normally use audioPlayer.positionStream)
-            Slider(
-              value: 0,
-              onChanged: (value) {},
-            ),
+            // Song info + heart
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('0:00', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
-                Text(
-                  '${currentSong.duration ~/ 60}:${(currentSong.duration % 60).toString().padLeft(2, '0')}',
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        currentSong.title,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        currentSong.artist,
+                        style: const TextStyle(fontSize: 15, color: Color(0xFFB3B3B3)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.favorite_border, color: Color(0xFFB3B3B3), size: 26),
+                  onPressed: () {},
                 ),
               ],
+            ),
+            const SizedBox(height: 20),
+            // Progress bar
+            StreamBuilder<Duration>(
+              stream: audioPlayer.positionStream,
+              builder: (context, snapshot) {
+                final position = snapshot.data ?? Duration.zero;
+                final duration = audioPlayer.duration ?? Duration.zero;
+                final progress = duration.inMilliseconds > 0
+                    ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+                    : 0.0;
+                return Column(
+                  children: [
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 3,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                        activeTrackColor: Colors.white,
+                        inactiveTrackColor: const Color(0xFF4D4D4D),
+                        thumbColor: Colors.white,
+                        overlayColor: Colors.white24,
+                      ),
+                      child: Slider(
+                        value: progress,
+                        onChanged: (value) {
+                          final ms = (value * duration.inMilliseconds).toInt();
+                          audioPlayer.seek(Duration(milliseconds: ms));
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(_formatDuration(position),
+                              style: const TextStyle(color: Color(0xFFB3B3B3), fontSize: 12)),
+                          Text(_formatDuration(duration),
+                              style: const TextStyle(color: Color(0xFFB3B3B3), fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
             // Controls
@@ -98,35 +179,45 @@ class PlayerPage extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 IconButton(
-                  iconSize: 32,
-                  icon: const Icon(Icons.skip_previous),
-                  onPressed: () {}, // Not implemented in MVP
-                ),
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1DB954),
-                    shape: BoxShape.circle,
+                  icon: Icon(
+                    Icons.shuffle,
+                    color: shuffleMode ? const Color(0xFF1DB954) : const Color(0xFFB3B3B3),
+                    size: 24,
                   ),
-                  child: IconButton(
-                    iconSize: 48,
-                    color: Colors.black,
-                    icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow),
-                    onPressed: () {
-                      if (isPlaying) {
-                        playerController.pause();
-                      } else {
-                        playerController.resume();
-                      }
-                    },
+                  onPressed: () => controller.toggleShuffle(),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.skip_previous, color: Colors.white, size: 36),
+                  onPressed: () => controller.skipPrevious(),
+                ),
+                GestureDetector(
+                  onTap: () => isPlaying ? controller.pause() : controller.resume(),
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                    child: Icon(
+                      isPlaying ? Icons.pause : Icons.play_arrow,
+                      color: Colors.black,
+                      size: 36,
+                    ),
                   ),
                 ),
                 IconButton(
-                  iconSize: 32,
-                  icon: const Icon(Icons.skip_next),
-                  onPressed: () {}, // Not implemented in MVP
+                  icon: const Icon(Icons.skip_next, color: Colors.white, size: 36),
+                  onPressed: () => controller.skipNext(),
+                ),
+                IconButton(
+                  icon: Icon(
+                    repeatMode == LoopMode.one ? Icons.repeat_one : Icons.repeat,
+                    color: repeatMode != LoopMode.off ? const Color(0xFF1DB954) : const Color(0xFFB3B3B3),
+                    size: 24,
+                  ),
+                  onPressed: () => controller.toggleRepeat(),
                 ),
               ],
             ),
+            const SizedBox(height: 32),
           ],
         ),
       ),

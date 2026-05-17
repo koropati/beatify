@@ -47,6 +47,25 @@ class Song(SongBase):
     class Config:
         from_attributes = True
 
+# --- User Actions ---
+class UpdateProfile(BaseModel):
+    username: str
+
+class ChangePassword(BaseModel):
+    current_password: str
+    new_password: str
+
+class ForgotPassword(BaseModel):
+    email: EmailStr
+
+class ResetPassword(BaseModel):
+    token: str
+    new_password: str
+
+class MessageResponse(BaseModel):
+    message: str
+    token: Optional[str] = None
+
 # --- Playlist ---
 class PlaylistBase(BaseModel):
     name: str

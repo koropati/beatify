@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Table
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Table, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -18,8 +18,10 @@ class User(Base):
     username = Column(String(255), unique=True, index=True)
     hashed_password = Column(String(255))
     profile_picture = Column(String(255), nullable=True)
-    role = Column(String(50), default="user") # "admin" or "user"
+    role = Column(String(50), default="user")
     is_verified = Column(Boolean, default=False)
+    reset_token = Column(String(255), nullable=True)
+    reset_token_expiry = Column(DateTime, nullable=True)
 
     songs = relationship("Song", back_populates="owner")
     playlists = relationship("Playlist", back_populates="owner")

@@ -1,13 +1,12 @@
+import 'package:dartz/dartz.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/secure_storage.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../data/datasources/auth_remote_data_source.dart';
 import '../../data/repositories/auth_repository_impl.dart';
-import '../../../music_player/presentation/providers/music_providers.dart'; // To get dioProvider
+import '../../../music_player/presentation/providers/music_providers.dart';
 
-final secureStorageProvider = Provider<SecureStorage>((ref) {
-  return SecureStorage();
-});
+final secureStorageProvider = Provider<SecureStorage>((ref) => SecureStorage());
 
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
   return AuthRemoteDataSourceImpl(dio: ref.read(dioProvider));
@@ -20,7 +19,6 @@ final authRepositoryProvider = Provider<AuthRepositoryImpl>((ref) {
   );
 });
 
-// StateNotifier to manage authentication state
 class AuthNotifier extends StateNotifier<AsyncValue<UserEntity?>> {
   final AuthRepositoryImpl _repository;
 
@@ -32,7 +30,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserEntity?>> {
     state = const AsyncValue.loading();
     final result = await _repository.getCurrentUser();
     result.fold(
-      (failure) => state = const AsyncValue.data(null), // Not logged in or error
+      (failure) => state = const AsyncValue.data(null),
       (user) => state = AsyncValue.data(user),
     );
   }
@@ -41,12 +39,8 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserEntity?>> {
     state = const AsyncValue.loading();
     final result = await _repository.login(username, password);
     result.fold(
-      (failure) {
-        state = AsyncValue.error(failure, StackTrace.current);
-        // Reset to null user so we stay on login page but show error
-        state = const AsyncValue.data(null); 
-      },
-      (token) => _checkAuthStatus(), // Refresh user data after getting token
+      (failure) => state = AsyncValue.error(failure, StackTrace.current),
+      (token) => _checkAuthStatus(),
     );
   }
 
@@ -54,20 +48,32 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserEntity?>> {
     state = const AsyncValue.loading();
     final result = await _repository.register(username, email, password);
     result.fold(
-      (failure) {
-        state = AsyncValue.error(failure, StackTrace.current);
-        state = const AsyncValue.data(null);
-      },
-      (user) {
-        // Automatically log in after registration
-        login(username, password);
-      },
+      (failure) => state = AsyncValue.error(failure, StackTrace.current),
+      (user) => login(username, password),
     );
   }
 
   Future<void> logout() async {
     await _repository.logout();
     state = const AsyncValue.data(null);
+  }
+
+  Future<Either<Exception, void>> updateProfile(String username) async {
+    final result = await _repository.updateProfile(username);
+    result.fold((_) {}, (user) => state = AsyncValue.data(user));
+    return result.map((_) {});
+  }
+
+  Future<Either<Exception, void>> changePassword(String currentPassword, String newPassword) {
+    return _repository.changePassword(currentPassword, newPassword);
+  }
+
+  Future<Either<Exception, String?>> forgotPassword(String email) {
+    return _repository.forgotPassword(email);
+  }
+
+  Future<Either<Exception, void>> resetPassword(String token, String newPassword) {
+    return _repository.resetPassword(token, newPassword);
   }
 }
 

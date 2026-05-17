@@ -1,4 +1,5 @@
-from datetime import timedelta
+import secrets
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -11,27 +12,18 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/register", response_model=schemas.User)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
-    if db_user:
+    if db.query(models.User).filter(models.User.email == user.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    
-    db_username = db.query(models.User).filter(models.User.username == user.username).first()
-    if db_username:
+    if db.query(models.User).filter(models.User.username == user.username).first():
         raise HTTPException(status_code=400, detail="Username already taken")
 
-    hashed_password = get_password_hash(user.password)
-    
-    # Check if this is the first user
     user_count = db.query(models.User).count()
-    role = "admin" if user_count == 0 else "user"
-    is_verified = True if user_count == 0 else False
-
     db_user = models.User(
-        email=user.email, 
-        username=user.username, 
-        hashed_password=hashed_password,
-        role=role,
-        is_verified=is_verified
+        email=user.email,
+        username=user.username,
+        hashed_password=get_password_hash(user.password),
+        role="admin" if user_count == 0 else "user",
+        is_verified=user_count == 0,
     )
     db.add(db_user)
     db.commit()
@@ -47,9 +39,35 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.username},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+@router.post("/forgot-password", response_model=schemas.MessageResponse)
+def forgot_password(req: schemas.ForgotPassword, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == req.email).first()
+    if not user:
+        return {"message": "If this email exists, a reset token has been sent.", "token": None}
+
+    token = str(secrets.randbelow(1_000_000)).zfill(6)
+    user.reset_token = token
+    user.reset_token_expiry = datetime.utcnow() + timedelta(minutes=15)
+    db.commit()
+    # In production: send token via email. For demo, returned in response.
+    return {"message": "Reset token generated. Check your email.", "token": token}
+
+@router.post("/reset-password", response_model=schemas.MessageResponse)
+def reset_password(req: schemas.ResetPassword, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.reset_token == req.token).first()
+    if not user or user.reset_token_expiry is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+    if user.reset_token_expiry < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Token has expired")
+
+    user.hashed_password = get_password_hash(req.new_password)
+    user.reset_token = None
+    user.reset_token_expiry = None
+    db.commit()
+    return {"message": "Password reset successfully"}

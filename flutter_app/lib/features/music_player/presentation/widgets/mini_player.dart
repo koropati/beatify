@@ -11,71 +11,111 @@ class MiniPlayer extends ConsumerWidget {
     final currentSong = ref.watch(currentSongProvider);
     final isPlaying = ref.watch(isPlayingProvider);
     final playerController = ref.watch(audioPlayerControllerProvider);
+    final audioPlayer = ref.watch(audioPlayerProvider);
 
-    if (currentSong == null) {
-      return const SizedBox.shrink();
-    }
+    if (currentSong == null) return const SizedBox.shrink();
 
     return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const PlayerPage()),
-        );
-      },
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const PlayerPage()),
+      ),
       child: Container(
-        height: 60,
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: const Color(0xFF282828),
           border: Border(
-            top: BorderSide(color: Colors.grey.shade800, width: 0.5),
+            top: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 0.5),
           ),
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Album Art
-            Container(
-              width: 60,
-              height: 60,
-              color: Colors.grey.shade800,
-              child: currentSong.coverImageUrl != null
-                  ? Image.network(currentSong.coverImageUrl!, fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.music_note, color: Colors.white54))
-                  : const Icon(Icons.music_note, color: Colors.white54),
+            StreamBuilder<Duration>(
+              stream: audioPlayer.positionStream,
+              builder: (context, snapshot) {
+                final position = snapshot.data ?? Duration.zero;
+                final duration = audioPlayer.duration ?? Duration.zero;
+                final progress = duration.inMilliseconds > 0
+                    ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+                    : 0.0;
+                return LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: Colors.white.withValues(alpha: 0.1),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF1DB954)),
+                  minHeight: 2,
+                );
+              },
             ),
-            const SizedBox(width: 12),
-            // Title & Artist
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
                 children: [
-                  Text(
-                    currentSong.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF404040),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: currentSong.coverImageUrl != null
+                          ? Image.network(
+                              currentSong.coverImageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, err, stack) =>
+                                  const Icon(Icons.music_note, color: Color(0xFFB3B3B3), size: 20),
+                            )
+                          : const Icon(Icons.music_note, color: Color(0xFFB3B3B3), size: 20),
+                    ),
                   ),
-                  Text(
-                    currentSong.artist,
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          currentSong.title,
+                          style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          currentSong.artist,
+                          style: const TextStyle(color: Color(0xFFB3B3B3), fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.favorite_border, color: Color(0xFFB3B3B3), size: 22),
+                    onPressed: () {},
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      isPlaying ? Icons.pause : Icons.play_arrow,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                    onPressed: () => isPlaying ? playerController.pause() : playerController.resume(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.skip_next, color: Colors.white, size: 26),
+                    onPressed: () => playerController.skipNext(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                   ),
                 ],
               ),
             ),
-            // Play/Pause Button
-            IconButton(
-              icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow),
-              onPressed: () {
-                if (isPlaying) {
-                  playerController.pause();
-                } else {
-                  playerController.resume();
-                }
-              },
-            ),
-            const SizedBox(width: 8),
           ],
         ),
       ),

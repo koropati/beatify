@@ -8,6 +8,7 @@ import 'playlists_page.dart';
 import 'upload_song_page.dart';
 import '../../../admin/presentation/pages/admin_dashboard_page.dart';
 import '../../../auth/presentation/pages/profile_page.dart';
+import '../../domain/entities/song_entity.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -21,12 +22,18 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Widget _buildPage(int index, bool isAdmin) {
     switch (index) {
-      case 0: return const _HomeContent();
-      case 1: return const LibraryPage();
-      case 2: return const PlaylistsPage();
-      case 3: return isAdmin ? const AdminDashboardPage() : const ProfilePage();
-      case 4: return const ProfilePage();
-      default: return const _HomeContent();
+      case 0:
+        return const _HomeContent();
+      case 1:
+        return const LibraryPage();
+      case 2:
+        return const PlaylistsPage();
+      case 3:
+        return isAdmin ? const AdminDashboardPage() : const ProfilePage();
+      case 4:
+        return const ProfilePage();
+      default:
+        return const _HomeContent();
     }
   }
 
@@ -39,125 +46,268 @@ class _HomePageState extends ConsumerState<HomePage> {
     final canUpload = isAdmin || isVerified;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _getAppBarTitle(isAdmin),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
-        ),
-        actions: [
-          if (_selectedIndex == 0 && canUpload) 
-            IconButton(
-              icon: const Icon(Icons.upload),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const UploadSongPage()),
-                );
-              },
-            ),
-        ],
-      ),
+      backgroundColor: const Color(0xFF121212),
       body: Column(
         children: [
-          Expanded(
-            child: _buildPage(_selectedIndex, isAdmin),
-          ),
+          Expanded(child: _buildPage(_selectedIndex, isAdmin)),
           const MiniPlayer(),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.black,
-        selectedItemColor: const Color(0xFF1DB954),
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        items: [
-          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          const BottomNavigationBarItem(icon: Icon(Icons.library_music), label: 'Library'),
-          const BottomNavigationBarItem(icon: Icon(Icons.queue_music), label: 'Playlists'),
-          if (isAdmin) const BottomNavigationBarItem(icon: Icon(Icons.admin_panel_settings), label: 'Admin'),
-          const BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+      floatingActionButton: _selectedIndex == 0 && canUpload
+          ? FloatingActionButton(
+              backgroundColor: const Color(0xFF1DB954),
+              foregroundColor: Colors.black,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const UploadSongPage()),
+              ),
+              child: const Icon(Icons.add),
+            )
+          : null,
+      bottomNavigationBar: NavigationBar(
+        backgroundColor: const Color(0xFF0A0A0A),
+        indicatorColor: Colors.transparent,
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        destinations: [
+          const NavigationDestination(
+            icon: Icon(Icons.home_outlined, color: Color(0xFFB3B3B3)),
+            selectedIcon: Icon(Icons.home, color: Color(0xFF1DB954)),
+            label: 'Home',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.library_music_outlined, color: Color(0xFFB3B3B3)),
+            selectedIcon: Icon(Icons.library_music, color: Color(0xFF1DB954)),
+            label: 'Library',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.queue_music_outlined, color: Color(0xFFB3B3B3)),
+            selectedIcon: Icon(Icons.queue_music, color: Color(0xFF1DB954)),
+            label: 'Playlists',
+          ),
+          if (isAdmin)
+            const NavigationDestination(
+              icon: Icon(Icons.admin_panel_settings_outlined, color: Color(0xFFB3B3B3)),
+              selectedIcon: Icon(Icons.admin_panel_settings, color: Color(0xFF1DB954)),
+              label: 'Admin',
+            ),
+          const NavigationDestination(
+            icon: Icon(Icons.person_outline, color: Color(0xFFB3B3B3)),
+            selectedIcon: Icon(Icons.person, color: Color(0xFF1DB954)),
+            label: 'Profile',
+          ),
         ],
       ),
     );
-  }
-
-  String _getAppBarTitle(bool isAdmin) {
-    switch (_selectedIndex) {
-      case 0: return 'Good Morning';
-      case 1: return 'Local Library';
-      case 2: return 'Playlists';
-      case 3: return isAdmin ? 'Admin Dashboard' : 'Profile';
-      case 4: return 'Profile';
-      default: return 'Beatify';
-    }
   }
 }
 
 class _HomeContent extends ConsumerWidget {
   const _HomeContent();
 
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final onlineSongsAsyncValue = ref.watch(onlineSongsProvider);
+    final onlineSongsAsync = ref.watch(onlineSongsProvider);
+    final user = ref.watch(authStateProvider).value;
 
-    return onlineSongsAsyncValue.when(
-      data: (songs) {
-        if (songs.isEmpty) {
-          return const Center(child: Text('No songs available online. Upload one!'));
-        }
-        return ListView.builder(
-          padding: const EdgeInsets.all(16.0),
-          itemCount: songs.length,
-          itemBuilder: (context, index) {
-            final song = songs[index];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  width: 60,
-                  height: 60,
-                  color: Colors.grey.shade800,
-                  child: song.coverImageUrl != null
-                      ? Image.network(song.coverImageUrl!, fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.music_note, color: Colors.white54))
-                      : const Icon(Icons.music_note, color: Colors.white54),
+    return CustomScrollView(
+      slivers: [
+        SliverAppBar(
+          backgroundColor: const Color(0xFF121212),
+          floating: true,
+          pinned: false,
+          expandedHeight: 0,
+          title: Text(
+            _greeting(),
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          actions: [
+            if (user != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: const Color(0xFF1DB954),
+                  child: Text(
+                    user.username[0].toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
-                title: Text(
-                  song.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
+        onlineSongsAsync.when(
+          data: (songs) {
+            if (songs.isEmpty) {
+              return const SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.music_off, size: 64, color: Color(0xFFB3B3B3)),
+                      SizedBox(height: 16),
+                      Text(
+                        'No songs available yet.',
+                        style: TextStyle(color: Color(0xFFB3B3B3), fontSize: 16),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Upload your first song!',
+                        style: TextStyle(color: Color(0xFF727272), fontSize: 14),
+                      ),
+                    ],
+                  ),
                 ),
-                subtitle: Text(
-                  song.artist,
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.more_vert, color: Colors.grey),
-                  onPressed: () {
-                    // MVP: Show options like add to playlist
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Options coming soon')));
+              );
+            }
+            return SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index == 0) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: 8, bottom: 16),
+                        child: Text(
+                          'Songs for you',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      );
+                    }
+                    return _SongListTile(song: songs[index - 1]);
                   },
+                  childCount: songs.length + 1,
                 ),
-                onTap: () {
-                  ref.read(audioPlayerControllerProvider).playSong(song);
-                },
               ),
             );
           },
-        );
+          loading: () => const SliverFillRemaining(
+            child: Center(child: CircularProgressIndicator(color: Color(0xFF1DB954))),
+          ),
+          error: (e, _) => SliverFillRemaining(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, color: Color(0xFFB3B3B3), size: 48),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Could not load songs',
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => ref.invalidate(onlineSongsProvider),
+                    child: const Text('Retry', style: TextStyle(color: Color(0xFF1DB954))),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SliverPadding(padding: EdgeInsets.only(bottom: 16)),
+      ],
+    );
+  }
+}
+
+class _SongListTile extends ConsumerWidget {
+  const _SongListTile({required this.song});
+  final SongEntity song;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentSong = ref.watch(currentSongProvider);
+    final isCurrentSong = currentSong?.id == song.id;
+
+    return InkWell(
+      onTap: () {
+        final songs = ref.read(onlineSongsProvider).value ?? [];
+        final idx = songs.indexWhere((s) => s.id == song.id);
+        ref.read(audioPlayerControllerProvider).playQueue(songs, idx == -1 ? 0 : idx);
       },
-      loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF1DB954))),
-      error: (error, stack) => Center(child: Text('Error: \$error')),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: const Color(0xFF282828),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: song.coverImageUrl != null
+                    ? Image.network(
+                        song.coverImageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stack) => const Icon(
+                          Icons.music_note,
+                          color: Color(0xFFB3B3B3),
+                        ),
+                      )
+                    : const Icon(Icons.music_note, color: Color(0xFFB3B3B3)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    song.title,
+                    style: TextStyle(
+                      color: isCurrentSong ? const Color(0xFF1DB954) : Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    song.artist,
+                    style: const TextStyle(color: Color(0xFFB3B3B3), fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            if (isCurrentSong)
+              const Padding(
+                padding: EdgeInsets.only(right: 4),
+                child: Icon(Icons.equalizer, color: Color(0xFF1DB954), size: 20),
+              ),
+            IconButton(
+              icon: const Icon(Icons.more_vert, color: Color(0xFFB3B3B3), size: 20),
+              onPressed: () {},
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

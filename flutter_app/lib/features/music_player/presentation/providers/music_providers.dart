@@ -1,4 +1,6 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../domain/entities/song_entity.dart';
@@ -20,8 +22,10 @@ final dioProvider = Provider<Dio>((ref) {
     receiveTimeout: const Duration(seconds: 30),
   ));
   dio.interceptors.add(AuthInterceptor(ref.read(secureStorageProvider)));
+  dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
   return dio;
 });
+
 final audioPlayerProvider = Provider<AudioPlayer>((ref) => AudioPlayer());
 
 // --- Data Sources ---
@@ -51,28 +55,23 @@ final getLocalSongsUseCaseProvider = Provider<GetLocalSongs>((ref) {
 });
 
 // --- State Providers ---
-
 final onlineSongsProvider = FutureProvider<List<SongEntity>>((ref) async {
-  final usecase = ref.read(getOnlineSongsUseCaseProvider);
-  final result = await usecase.execute();
-  return result.fold(
-    (failure) => throw failure,
-    (songs) => songs,
-  );
+  final result = await ref.read(getOnlineSongsUseCaseProvider).execute();
+  return result.fold((failure) => throw failure, (songs) => songs);
 });
 
 final localSongsProvider = FutureProvider<List<SongEntity>>((ref) async {
-  final usecase = ref.read(getLocalSongsUseCaseProvider);
-  final result = await usecase.execute();
-  return result.fold(
-    (failure) => throw failure,
-    (songs) => songs,
-  );
+  final result = await ref.read(getLocalSongsUseCaseProvider).execute();
+  return result.fold((failure) => throw failure, (songs) => songs);
 });
 
 // --- Audio Player State ---
 final currentSongProvider = StateProvider<SongEntity?>((ref) => null);
 final isPlayingProvider = StateProvider<bool>((ref) => false);
+final queueProvider = StateProvider<List<SongEntity>>((ref) => []);
+final queueIndexProvider = StateProvider<int>((ref) => 0);
+final shuffleModeProvider = StateProvider<bool>((ref) => false);
+final repeatModeProvider = StateProvider<LoopMode>((ref) => LoopMode.off);
 
 class AudioPlayerController {
   final AudioPlayer _player;
@@ -82,29 +81,85 @@ class AudioPlayerController {
     _player.playerStateStream.listen((state) {
       _ref.read(isPlayingProvider.notifier).state = state.playing;
     });
+    _player.currentIndexStream.listen((index) {
+      if (index == null) return;
+      final queue = _ref.read(queueProvider);
+      if (index < queue.length) {
+        _ref.read(currentSongProvider.notifier).state = queue[index];
+        _ref.read(queueIndexProvider.notifier).state = index;
+      }
+    });
   }
 
-  Future<void> playSong(SongEntity song) async {
+  AudioSource _buildSource(SongEntity song) {
+    final uri = song.isLocal ? Uri.file(song.uri) : Uri.parse(song.uri);
+    return AudioSource.uri(
+      uri,
+      tag: MediaItem(
+        id: song.id,
+        title: song.title,
+        artist: song.artist,
+        album: song.album,
+        artUri: song.coverImageUrl != null ? Uri.tryParse(song.coverImageUrl!) : null,
+      ),
+    );
+  }
+
+  Future<void> playQueue(List<SongEntity> songs, int startIndex) async {
+    if (songs.isEmpty) return;
     try {
-      if (song.isLocal) {
-        await _player.setFilePath(song.uri);
-      } else {
-        await _player.setUrl(song.uri);
-      }
-      _ref.read(currentSongProvider.notifier).state = song;
+      _ref.read(queueProvider.notifier).state = songs;
+      _ref.read(queueIndexProvider.notifier).state = startIndex;
+      _ref.read(currentSongProvider.notifier).state = songs[startIndex];
+
+      await _player.setAudioSources(
+        songs.map(_buildSource).toList(),
+        initialIndex: startIndex,
+      );
       await _player.play();
     } catch (e) {
-      print("Error playing audio: \$e");
+      debugPrint("Error playing queue: $e");
     }
   }
 
-  Future<void> pause() async {
-    await _player.pause();
+  Future<void> playSong(SongEntity song) async {
+    final queue = _ref.read(queueProvider);
+    final idx = queue.indexWhere((s) => s.id == song.id);
+    if (idx != -1) {
+      await _player.seek(Duration.zero, index: idx);
+      await _player.play();
+    } else {
+      await playQueue([song], 0);
+    }
   }
 
-  Future<void> resume() async {
-    await _player.play();
+  Future<void> skipNext() async {
+    await _player.seekToNext();
   }
+
+  Future<void> skipPrevious() async {
+    await _player.seekToPrevious();
+  }
+
+  Future<void> toggleShuffle() async {
+    final current = _ref.read(shuffleModeProvider);
+    await _player.setShuffleModeEnabled(!current);
+    _ref.read(shuffleModeProvider.notifier).state = !current;
+  }
+
+  Future<void> toggleRepeat() async {
+    final current = _ref.read(repeatModeProvider);
+    final next = switch (current) {
+      LoopMode.off => LoopMode.all,
+      LoopMode.all => LoopMode.one,
+      _ => LoopMode.off,
+    };
+    await _player.setLoopMode(next);
+    _ref.read(repeatModeProvider.notifier).state = next;
+  }
+
+  Future<void> pause() async => _player.pause();
+  Future<void> resume() async => _player.play();
 }
 
 final audioPlayerControllerProvider = Provider<AudioPlayerController>((ref) {

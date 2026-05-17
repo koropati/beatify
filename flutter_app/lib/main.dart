@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'core/theme/app_theme.dart';
 import 'features/music_player/presentation/pages/home_page.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/providers/auth_providers.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.beatify.channel.audio',
+    androidNotificationChannelName: 'Beatify',
+    androidNotificationOngoing: true,
+    androidStopForegroundOnPause: true,
+  );
   runApp(const ProviderScope(child: BeatifyApp()));
 }
 
@@ -21,15 +29,9 @@ class BeatifyApp extends ConsumerWidget {
       theme: AppTheme.darkTheme,
       debugShowCheckedModeBanner: false,
       home: authState.when(
-        data: (user) {
-          if (user != null) {
-            return const HomePage();
-          } else {
-            return const LoginPage();
-          }
-        },
+        data: (user) => user != null ? const HomePage() : const LoginPage(),
         loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-        error: (error, stack) => const LoginPage(), // Fallback to login on error
+        error: (error, stack) => const LoginPage(),
       ),
     );
   }

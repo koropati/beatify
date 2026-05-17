@@ -10,6 +10,18 @@ from routers import auth, users, songs, playlists, admin
 
 models.Base.metadata.create_all(bind=engine)
 
+def _migrate_db():
+    from sqlalchemy import text, inspect as sa_inspect
+    with engine.connect() as conn:
+        cols = [c['name'] for c in sa_inspect(engine).get_columns('users')]
+        if 'reset_token' not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN reset_token VARCHAR(255)"))
+        if 'reset_token_expiry' not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expiry DATETIME"))
+        conn.commit()
+
+_migrate_db()
+
 app = FastAPI(
     title="Beatify API",
     description="API untuk aplikasi music streaming Beatify. Mendukung fitur autentikasi, manajemen profil, playlist, dan streaming file audio.",
