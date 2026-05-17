@@ -36,10 +36,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             children: [
               const SizedBox(height: 60),
               Center(
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  height: 80,
-                  width: 80,
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    height: 80,
+                    width: 80,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

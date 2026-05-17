@@ -44,7 +44,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             children: [
               const SizedBox(height: 16),
               Center(
-                child: Image.asset('assets/images/logo.png', height: 60, width: 60),
+                child: ClipOval(
+                  child: Image.asset('assets/images/logo.png', height: 60, width: 60, fit: BoxFit.cover),
+                ),
               ),
               const SizedBox(height: 16),
               const Text(

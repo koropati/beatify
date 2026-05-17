@@ -53,10 +53,13 @@ class _SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image(
-              image: AssetImage('assets/images/logo.png'),
-              width: 100,
-              height: 100,
+            ClipOval(
+              child: Image(
+                image: AssetImage('assets/images/logo.png'),
+                width: 100,
+                height: 100,
+                fit: BoxFit.cover,
+              ),
             ),
             SizedBox(height: 20),
             Text(
