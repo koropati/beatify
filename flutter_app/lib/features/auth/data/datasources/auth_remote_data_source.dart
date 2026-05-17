@@ -9,7 +9,6 @@ abstract class AuthRemoteDataSource {
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final Dio dio;
-  final String baseUrl = "http://localhost:8000/api";
 
   AuthRemoteDataSourceImpl({required this.dio});
 
@@ -17,7 +16,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<String> login(String username, String password) async {
     try {
       final response = await dio.post(
-        '\$baseUrl/auth/login',
+        '/auth/login',
         data: FormData.fromMap({
           'username': username,
           'password': password,
@@ -29,7 +28,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         throw Exception("Login failed");
       }
     } catch (e) {
-      throw Exception("Error logging in: \$e");
+      throw Exception("Error logging in: $e");
     }
   }
 
@@ -37,7 +36,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<UserEntity> register(String username, String email, String password) async {
     try {
       final response = await dio.post(
-        '\$baseUrl/auth/register',
+        '/auth/register',
         data: {
           'username': username,
           'email': email,
@@ -52,21 +51,21 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } on DioException catch (e) {
       throw Exception(e.response?.data['detail'] ?? "Error registering");
     } catch (e) {
-      throw Exception("Error registering: \$e");
+      throw Exception("Error registering: $e");
     }
   }
 
   @override
   Future<UserEntity> getCurrentUser() async {
     try {
-      final response = await dio.get('\$baseUrl/users/me');
+      final response = await dio.get('/users/me');
       if (response.statusCode == 200) {
         return UserEntity.fromJson(response.data);
       } else {
         throw Exception("Failed to get current user");
       }
     } catch (e) {
-      throw Exception("Error getting current user: \$e");
+      throw Exception("Error getting current user: $e");
     }
   }
 }

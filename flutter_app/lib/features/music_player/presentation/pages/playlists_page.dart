@@ -5,7 +5,7 @@ import '../providers/music_providers.dart';
 
 final playlistsProvider = FutureProvider((ref) async {
   final dio = ref.read(dioProvider);
-  final response = await dio.get('http://localhost:8000/api/playlists');
+  final response = await dio.get('/playlists');
   return response.data as List<dynamic>;
 });
 
@@ -37,7 +37,7 @@ class _PlaylistsPageState extends ConsumerState<PlaylistsPage> {
                 if (nameController.text.isNotEmpty) {
                    try {
                      final dio = ref.read(dioProvider);
-                     await dio.post('http://localhost:8000/api/playlists', data: {'name': nameController.text});
+                     await dio.post('/playlists', data: {'name': nameController.text});
                      ref.invalidate(playlistsProvider);
                      Navigator.pop(context);
                    } catch (e) {

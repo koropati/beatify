@@ -9,11 +9,16 @@ import '../../domain/usecases/get_online_songs.dart';
 import '../../domain/usecases/get_local_songs.dart';
 
 import '../../../../core/network/auth_interceptor.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 
 // --- Core ---
 final dioProvider = Provider<Dio>((ref) {
-  final dio = Dio();
+  final dio = Dio(BaseOptions(
+    baseUrl: AppConfig.baseUrl,
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 30),
+  ));
   dio.interceptors.add(AuthInterceptor(ref.read(secureStorageProvider)));
   return dio;
 });

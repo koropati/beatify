@@ -56,7 +56,6 @@ class _UploadSongPageState extends ConsumerState<UploadSongPage> {
 
     try {
       final dio = ref.read(dioProvider);
-      final String baseUrl = "http://localhost:8000/api";
 
       FormData formData = FormData.fromMap({
         'title': _titleController.text,
@@ -72,7 +71,7 @@ class _UploadSongPageState extends ConsumerState<UploadSongPage> {
         ));
       }
 
-      final response = await dio.post('\$baseUrl/songs/upload', data: formData);
+      final response = await dio.post('/songs/upload', data: formData);
       
       if (response.statusCode == 200) {
         // Refresh online songs

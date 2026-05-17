@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import models
 from database import engine
@@ -14,6 +15,14 @@ app = FastAPI(
     description="API untuk aplikasi music streaming Beatify. Mendukung fitur autentikasi, manajemen profil, playlist, dan streaming file audio.",
     version="2.0.0",
     docs_url="/docs",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include routers

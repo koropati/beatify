@@ -5,7 +5,7 @@ import '../../../music_player/presentation/providers/music_providers.dart';
 
 final unverifiedUsersProvider = FutureProvider.autoDispose<List<UserEntity>>((ref) async {
   final dio = ref.read(dioProvider);
-  final response = await dio.get('http://localhost:8000/api/admin/users/unverified');
+  final response = await dio.get('/admin/users/unverified');
   return (response.data as List).map((e) => UserEntity.fromJson(e)).toList();
 });
 
@@ -35,11 +35,11 @@ class AdminDashboardPage extends ConsumerWidget {
                   onPressed: () async {
                      try {
                         final dio = ref.read(dioProvider);
-                        await dio.put('http://localhost:8000/api/admin/users/\${user.id}/verify');
+                        await dio.put('/admin/users/${user.id}/verify');
                         ref.invalidate(unverifiedUsersProvider);
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('\${user.username} is now verified!')));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${user.username} is now verified!')));
                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: \$e')));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
                      }
                   },
                   child: const Text('Verify'),
@@ -49,7 +49,7 @@ class AdminDashboardPage extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text("Error fetching users: \$e")),
+        error: (e, s) => Center(child: Text("Error fetching users: $e")),
       ),
     );
   }

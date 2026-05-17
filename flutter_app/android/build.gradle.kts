@@ -24,45 +24,37 @@ tasks.register<Delete>("clean") {
 }
 
 subprojects {
-    project.plugins.withId("com.android.library") {
-        val android = project.extensions.getByName("android") as com.android.build.gradle.BaseExtension
-        
-        // Fix missing namespace
-        try {
-            val setNamespace = android.javaClass.getMethod("setNamespace", String::class.java)
-            val getNamespace = android.javaClass.getMethod("getNamespace")
-            if (getNamespace.invoke(android) == null) {
-                setNamespace.invoke(android, "com.lucasjosino.on_audio_query")
-            }
-        } catch (e: Exception) {}
-    }
+    pluginManager.withPlugin("com.android.library") {
+        val android = extensions.getByName("android") as com.android.build.gradle.BaseExtension
 
-    project.plugins.withId("com.android.application") {
-        val android = project.extensions.getByName("android") as com.android.build.gradle.BaseExtension
-        
-        // Fix missing namespace
+        // Fix missing namespace for older plugins (reads from AndroidManifest.xml)
         try {
-            val setNamespace = android.javaClass.getMethod("setNamespace", String::class.java)
             val getNamespace = android.javaClass.getMethod("getNamespace")
             if (getNamespace.invoke(android) == null) {
-                setNamespace.invoke(android, project.group.toString())
+                val manifestFile = file("src/main/AndroidManifest.xml")
+                if (manifestFile.exists()) {
+                    val pkg = Regex("""package\s*=\s*["']([^"']+)["']""")
+                        .find(manifestFile.readText())?.groupValues?.get(1)
+                    if (pkg != null) {
+                        android.javaClass.getMethod("setNamespace", String::class.java)
+                            .invoke(android, pkg)
+                    }
+                }
             }
-        } catch (e: Exception) {}
-    tasks.withType<JavaCompile>().configureEach {
-        if (sourceCompatibility == "1.8") {
-            sourceCompatibility = "11"
-            targetCompatibility = "11"
+        } catch (_: Exception) {}
+
+        // Fix Java compatibility for older plugins that default to 1.8
+        android.compileOptions {
+            sourceCompatibility = JavaVersion.VERSION_11
+            targetCompatibility = JavaVersion.VERSION_11
         }
     }
 
-    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+    pluginManager.withPlugin("kotlin-android") {
+        tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+            compilerOptions {
+                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+            }
         }
     }
-}
-
-}
-
-allprojects {
 }
