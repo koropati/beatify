@@ -11,7 +11,7 @@
     <application
         android:label="Beatify"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/launcher_icon">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -33,9 +33,9 @@
 
         <!-- Background audio service for just_audio_background -->
         <service
-            android:name="com.ryanheise.audioservice.AudioServiceBackground"
+            android:name="com.ryanheise.audioservice.AudioService"
             android:foregroundServiceType="mediaPlayback"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService"/>
             </intent-filter>
