@@ -25,6 +25,8 @@ dependencies:
   just_audio_background: ^0.0.1-beta.16
   audio_service: ^0.18.18
   flutter_native_splash: ^2.4.0
+  sqflite: ^2.3.3+1
+  path: ^1.9.0
 
 dev_dependencies:
   flutter_test:

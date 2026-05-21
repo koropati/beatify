@@ -1,4 +1,5 @@
 import '../../domain/entities/song_entity.dart';
+import '../../../../core/config/app_config.dart';
 
 class SongModel extends SongEntity {
   SongModel({
@@ -19,8 +20,10 @@ class SongModel extends SongEntity {
       artist: json['artist'],
       album: json['album'],
       duration: json['duration'],
-      uri: json['file_url'],
-      coverImageUrl: json['cover_image_url'],
+      uri: AppConfig.fixUrl(json['file_url']),
+      coverImageUrl: json['cover_image_url'] != null
+          ? AppConfig.fixUrl(json['cover_image_url'])
+          : null,
       isLocal: false,
     );
   }

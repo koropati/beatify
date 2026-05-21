@@ -24,18 +24,36 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         uriType: UriType.EXTERNAL,
         ignoreCase: true,
       );
-      return songs.map((song) => SongModel(
-        id: song.id.toString(),
-        title: song.title,
-        artist: song.artist ?? "Unknown Artist",
-        album: song.album,
-        duration: (song.duration ?? 0) ~/ 1000,
-        uri: song.data,
-        isLocal: true,
-      )).toList();
+      return songs
+          .where((song) => !_isRecording(song.data))
+          .map((song) => SongModel(
+                id: song.id.toString(),
+                title: song.title,
+                artist: song.artist ?? "Unknown Artist",
+                album: song.album,
+                duration: (song.duration ?? 0) ~/ 1000,
+                uri: song.data,
+                isLocal: true,
+              ))
+          .toList();
     } catch (e) {
       throw Exception("Failed to query local songs: $e");
     }
+  }
+
+  bool _isRecording(String? path) {
+    if (path == null) return false;
+    final lower = path.toLowerCase();
+    return lower.contains('/recordings/') ||
+        lower.contains('/recording/') ||
+        lower.contains('/voicerecorder/') ||
+        lower.contains('/voice_recorder/') ||
+        lower.contains('/voice recorder/') ||
+        lower.contains('/audiorecorder/') ||
+        lower.contains('/callrecording') ||
+        lower.contains('/call_recording') ||
+        lower.contains('sound_recorder') ||
+        lower.contains('/captured/');
   }
 
   Future<bool> _checkPermission() async {

@@ -44,6 +44,22 @@ class _HomePageState extends ConsumerState<HomePage> {
     final isAdmin = user?.role == 'admin';
     final isVerified = user?.isVerified == true;
     final canUpload = isAdmin || isVerified;
+    final hasMiniPlayer = ref.watch(currentSongProvider) != null;
+
+    Widget? fab;
+    if (_selectedIndex == 0 && canUpload) {
+      fab = Padding(
+        padding: EdgeInsets.only(bottom: hasMiniPlayer ? 68 : 0),
+        child: FloatingActionButton(
+          backgroundColor: const Color(0xFF1DB954),
+          foregroundColor: Colors.black,
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const UploadSongPage()),
+          ),
+          child: const Icon(Icons.add),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
@@ -53,16 +69,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           const MiniPlayer(),
         ],
       ),
-      floatingActionButton: _selectedIndex == 0 && canUpload
-          ? FloatingActionButton(
-              backgroundColor: const Color(0xFF1DB954),
-              foregroundColor: Colors.black,
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const UploadSongPage()),
-              ),
-              child: const Icon(Icons.add),
-            )
-          : null,
+      floatingActionButton: fab,
       bottomNavigationBar: NavigationBar(
         backgroundColor: const Color(0xFF0A0A0A),
         indicatorColor: Colors.transparent,

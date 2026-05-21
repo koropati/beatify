@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -67,7 +68,8 @@ class _UploadSongPageState extends ConsumerState<UploadSongPage> {
       }
 
       final response = await dio.post('/songs/upload', data: formData);
-      if (response.statusCode == 200) {
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) {
         ref.invalidate(onlineSongsProvider);
         if (mounted) {
           Navigator.of(context).pop();
@@ -122,17 +124,12 @@ class _UploadSongPageState extends ConsumerState<UploadSongPage> {
                     color: const Color(0xFF282828),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: _coverImage != null
+                  child: _coverImage != null && _coverImage!.path != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            _coverImage!.path!,
+                          child: Image.file(
+                            File(_coverImage!.path!),
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stack) => const Icon(
-                              Icons.add_photo_alternate_outlined,
-                              color: Color(0xFFB3B3B3),
-                              size: 40,
-                            ),
                           ),
                         )
                       : const Column(
