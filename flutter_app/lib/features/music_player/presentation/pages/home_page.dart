@@ -46,6 +46,15 @@ class _HomePageState extends ConsumerState<HomePage> {
     final canUpload = isAdmin || isVerified;
     final hasMiniPlayer = ref.watch(currentSongProvider) != null;
 
+    ref.listen(playbackErrorProvider, (prev, next) {
+      if (next != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next), backgroundColor: Colors.redAccent),
+        );
+        ref.read(playbackErrorProvider.notifier).state = null;
+      }
+    });
+
     Widget? fab;
     if (_selectedIndex == 0 && canUpload) {
       fab = Padding(

@@ -72,6 +72,7 @@ final queueProvider = StateProvider<List<SongEntity>>((ref) => []);
 final queueIndexProvider = StateProvider<int>((ref) => 0);
 final shuffleModeProvider = StateProvider<bool>((ref) => false);
 final repeatModeProvider = StateProvider<LoopMode>((ref) => LoopMode.off);
+final playbackErrorProvider = StateProvider<String?>((ref) => null);
 
 class AudioPlayerController {
   final AudioPlayer _player;
@@ -89,6 +90,15 @@ class AudioPlayerController {
         _ref.read(queueIndexProvider.notifier).state = index;
       }
     });
+    // Surface playback/streaming errors instead of failing silently.
+    _player.playbackEventStream.listen(
+      (_) {},
+      onError: (Object e, StackTrace st) {
+        debugPrint("Playback error: $e");
+        _ref.read(playbackErrorProvider.notifier).state =
+            "Tidak bisa memutar lagu. Periksa koneksi internet.";
+      },
+    );
   }
 
   AudioSource _buildSource(SongEntity song) {
@@ -108,17 +118,22 @@ class AudioPlayerController {
   Future<void> playQueue(List<SongEntity> songs, int startIndex) async {
     if (songs.isEmpty) return;
     try {
+      _ref.read(playbackErrorProvider.notifier).state = null;
       _ref.read(queueProvider.notifier).state = songs;
       _ref.read(queueIndexProvider.notifier).state = startIndex;
-      _ref.read(currentSongProvider.notifier).state = songs[startIndex];
 
       await _player.setAudioSources(
         songs.map(_buildSource).toList(),
         initialIndex: startIndex,
       );
+      // Only reflect the song as "now playing" once the source actually loaded.
+      _ref.read(currentSongProvider.notifier).state = songs[startIndex];
+      await _player.setVolume(1.0);
       await _player.play();
     } catch (e) {
       debugPrint("Error playing queue: $e");
+      _ref.read(playbackErrorProvider.notifier).state =
+          "Tidak bisa memutar lagu. Periksa koneksi internet.";
     }
   }
 

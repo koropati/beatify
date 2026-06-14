@@ -1,4 +1,5 @@
 import 'package:on_audio_query/on_audio_query.dart' hide SongModel;
+import 'package:on_audio_query/on_audio_query.dart' as oaq show SongModel;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/song_model.dart';
@@ -25,7 +26,7 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         ignoreCase: true,
       );
       return songs
-          .where((song) => !_isRecording(song.data))
+          .where(_isRealMusic)
           .map((song) => SongModel(
                 id: song.id.toString(),
                 title: song.title,
@@ -41,7 +42,20 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
     }
   }
 
-  bool _isRecording(String? path) {
+  // Keep only actual songs — drop ringtones, alarms, notifications, recordings,
+  // app voice notes, and short system/UI sounds that MediaStore also reports.
+  bool _isRealMusic(oaq.SongModel song) {
+    if (song.isMusic != true) return false;
+    if (song.isAlarm == true ||
+        song.isNotification == true ||
+        song.isRingtone == true) {
+      return false;
+    }
+    if ((song.duration ?? 0) < 30000) return false; // < 30s = not a song
+    return !_isNonMusicPath(song.data);
+  }
+
+  bool _isNonMusicPath(String? path) {
     if (path == null) return false;
     final lower = path.toLowerCase();
     return lower.contains('/recordings/') ||
@@ -53,7 +67,15 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         lower.contains('/callrecording') ||
         lower.contains('/call_recording') ||
         lower.contains('sound_recorder') ||
-        lower.contains('/captured/');
+        lower.contains('/captured/') ||
+        lower.contains('/notifications/') ||
+        lower.contains('/ringtones/') ||
+        lower.contains('/alarms/') ||
+        lower.contains('/whatsapp/') ||
+        lower.contains('/whatsapp business/') ||
+        lower.contains('/telegram/') ||
+        lower.contains('voice notes') ||
+        lower.contains('/android/media/');
   }
 
   Future<bool> _checkPermission() async {
