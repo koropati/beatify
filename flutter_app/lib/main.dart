@@ -14,6 +14,7 @@ Future<void> main() async {
   await JustAudioBackground.init(
     androidNotificationChannelId: 'com.beatify.channel.audio',
     androidNotificationChannelName: 'Beatify',
+    androidNotificationIcon: 'mipmap/launcher_icon',
     androidNotificationOngoing: true,
     androidStopForegroundOnPause: true,
   );
