@@ -87,3 +87,22 @@ def test_add_song_to_other_users_playlist_forbidden(client, admin_headers, user_
 
     res = client.post(f"/api/playlists/{admin_playlist_id}/songs/{song_id}", headers=user_headers)
     assert res.status_code == 404
+
+
+def test_playlist_song_includes_cover_url(client, admin_headers, user_headers):
+    playlist_id = client.post("/api/playlists", json={"name": "Art"}, headers=user_headers).json()["id"]
+    song_id = client.post(
+        "/api/songs/upload",
+        data={"title": "Cover Song", "artist": "Artist"},
+        files={
+            "audio_file": ("song.mp3", io.BytesIO(b"fake mp3"), "audio/mpeg"),
+            "cover_image": ("cover.jpg", io.BytesIO(b"img"), "image/jpeg"),
+        },
+        headers=admin_headers,
+    ).json()["id"]
+
+    add = client.post(f"/api/playlists/{playlist_id}/songs/{song_id}", headers=user_headers)
+    assert add.json()["songs"][0]["cover_image_url"] is not None
+
+    res = client.get("/api/playlists", headers=user_headers)
+    assert res.json()[0]["songs"][0]["cover_image_url"] is not None

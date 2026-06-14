@@ -5,8 +5,7 @@ pydantic
 python-multipart
 pymysql
 python-dotenv
-passlib[bcrypt]
-bcrypt<4.0.0
+bcrypt
 python-jose[cryptography]
 mutagen
 email-validator

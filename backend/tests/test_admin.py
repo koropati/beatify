@@ -51,3 +51,28 @@ def test_verify_by_non_admin_forbidden(client, admin_headers, user_headers):
     user_id = client.get("/api/users/me", headers=user_headers).json()["id"]
     res = client.put(f"/api/admin/users/{user_id}/verify", headers=user_headers)
     assert res.status_code == 403
+
+
+def test_unverified_list_includes_profile_picture_url(client, admin_headers, user_headers):
+    import io
+    client.post(
+        "/api/users/me/picture",
+        files={"file": ("a.jpg", io.BytesIO(b"img"), "image/jpeg")},
+        headers=user_headers,
+    )
+    res = client.get("/api/admin/users/unverified", headers=admin_headers)
+    user = next(u for u in res.json() if u["username"] == "user1")
+    assert user["profile_picture_url"] is not None
+
+
+def test_verify_user_returns_profile_picture_url(client, admin_headers, user_headers):
+    import io
+    client.post(
+        "/api/users/me/picture",
+        files={"file": ("a.jpg", io.BytesIO(b"img"), "image/jpeg")},
+        headers=user_headers,
+    )
+    user_id = client.get("/api/users/me", headers=user_headers).json()["id"]
+    res = client.put(f"/api/admin/users/{user_id}/verify", headers=admin_headers)
+    assert res.status_code == 200
+    assert res.json()["profile_picture_url"] is not None

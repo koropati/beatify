@@ -156,3 +156,7 @@ media/
 *.png
 *.jpeg
 CLAUDE.md
+
+# Test artifacts
+test_beatify.db
+*.test.db

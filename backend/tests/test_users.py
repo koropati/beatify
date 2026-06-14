@@ -51,3 +51,36 @@ def test_upload_non_image_file_rejected(client, user_headers):
         headers=user_headers,
     )
     assert res.status_code == 400
+
+
+def test_update_profile_success(client, user_headers):
+    res = client.put("/api/users/me", json={"username": "renamed"}, headers=user_headers)
+    assert res.status_code == 200
+    assert res.json()["username"] == "renamed"
+
+
+def test_update_profile_duplicate_username(client, admin_headers, user_headers):
+    res = client.put("/api/users/me", json={"username": "admin"}, headers=user_headers)
+    assert res.status_code == 400
+    assert "already taken" in res.json()["detail"]
+
+
+def test_change_password_success(client, user_headers):
+    res = client.put(
+        "/api/users/me/password",
+        json={"current_password": "user123", "new_password": "newpass123"},
+        headers=user_headers,
+    )
+    assert res.status_code == 200
+    login = client.post("/api/auth/login", data={"username": "user1", "password": "newpass123"})
+    assert login.status_code == 200
+
+
+def test_change_password_wrong_current(client, user_headers):
+    res = client.put(
+        "/api/users/me/password",
+        json={"current_password": "wrongpass", "new_password": "newpass123"},
+        headers=user_headers,
+    )
+    assert res.status_code == 400
+    assert "incorrect" in res.json()["detail"]

@@ -93,6 +93,54 @@ def test_stream_song_not_found(client):
     assert res.status_code == 404
 
 
+def test_upload_song_with_cover_image(client, admin_headers):
+    res = client.post(
+        "/api/songs/upload",
+        data={"title": "Covered", "artist": "Artist"},
+        files={
+            "audio_file": _fake_mp3(),
+            "cover_image": ("cover.jpg", io.BytesIO(b"fake cover"), "image/jpeg"),
+        },
+        headers=admin_headers,
+    )
+    assert res.status_code == 200
+    assert res.json()["cover_image_url"] is not None
+
+
+def test_upload_song_extracts_duration(client, admin_headers, monkeypatch):
+    import routers.songs as songs_router
+
+    class _FakeInfo:
+        length = 200.7
+
+    class _FakeMP3:
+        def __init__(self, path):
+            self.info = _FakeInfo()
+
+    monkeypatch.setattr(songs_router, "MP3", _FakeMP3)
+    res = client.post(
+        "/api/songs/upload",
+        data={"title": "Timed", "artist": "Artist"},
+        files={"audio_file": _fake_mp3()},
+        headers=admin_headers,
+    )
+    assert res.status_code == 200
+    assert res.json()["duration"] == 200
+
+
+def test_stream_song_success(client, admin_headers):
+    song_id = client.post(
+        "/api/songs/upload",
+        data={"title": "Playable", "artist": "Artist"},
+        files={"audio_file": _fake_mp3()},
+        headers=admin_headers,
+    ).json()["id"]
+
+    res = client.get(f"/api/songs/stream/{song_id}")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "audio/mpeg"
+
+
 def test_stream_song_file_missing(client, admin_headers):
     upload = client.post(
         "/api/songs/upload",
