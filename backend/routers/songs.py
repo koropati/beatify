@@ -14,18 +14,20 @@ router = APIRouter(prefix="/api/songs", tags=["songs"])
 MEDIA_DIR = "media"
 os.makedirs(MEDIA_DIR, exist_ok=True)
 
+# Public origin used to build absolute media URLs returned to clients.
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
+
+
+def _with_media_urls(song_schema: schemas.Song, song: models.Song) -> schemas.Song:
+    song_schema.file_url = f"{PUBLIC_BASE_URL}/api/songs/stream/{song.id}"
+    if song.cover_image_path:
+        song_schema.cover_image_url = f"{PUBLIC_BASE_URL}/api/image/{song.cover_image_path}"
+    return song_schema
+
 @router.get("", response_model=List[schemas.Song])
 def read_songs(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     songs = db.query(models.Song).offset(skip).limit(limit).all()
-    result = []
-    base_url = "http://localhost:8000"
-    for song in songs:
-        song_schema = schemas.Song.model_validate(song)
-        song_schema.file_url = f"{base_url}/api/songs/stream/{song.id}"
-        if song.cover_image_path:
-            song_schema.cover_image_url = f"{base_url}/api/image/{song.cover_image_path}"
-        result.append(song_schema)
-    return result
+    return [_with_media_urls(schemas.Song.model_validate(song), song) for song in songs]
 
 @router.get("/stream/{song_id}")
 def stream_song(song_id: int, db: Session = Depends(get_db)):
@@ -90,11 +92,5 @@ async def upload_song(
     db.add(new_song)
     db.commit()
     db.refresh(new_song)
-    
-    base_url = "http://localhost:8000"
-    song_schema = schemas.Song.model_validate(new_song)
-    song_schema.file_url = f"{base_url}/api/songs/stream/{new_song.id}"
-    if new_song.cover_image_path:
-        song_schema.cover_image_url = f"{base_url}/api/image/{new_song.cover_image_path}"
-        
-    return song_schema
+
+    return _with_media_urls(schemas.Song.model_validate(new_song), new_song)
