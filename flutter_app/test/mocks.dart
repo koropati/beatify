@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:mockito/annotations.dart';
 import 'package:flutter_app/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:flutter_app/features/music_player/data/datasources/music_remote_data_source.dart';
@@ -13,5 +14,6 @@ import 'package:flutter_app/features/music_player/data/repositories/music_reposi
   SecureStorage,
   AuthRepositoryImpl,
   MusicRepositoryImpl,
+  Dio,
 ])
 void main() {}

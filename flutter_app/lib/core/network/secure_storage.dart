@@ -1,3 +1,6 @@
+// coverage:ignore-file
+// Thin wrapper over the flutter_secure_storage platform plugin — covered by
+// integration tests, not unit tests.
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStorage {

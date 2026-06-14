@@ -1,3 +1,6 @@
+// coverage:ignore-file
+// Wraps on_audio_query + permission_handler platform plugins; exercised on
+// device, not in unit tests.
 import 'package:on_audio_query/on_audio_query.dart' hide SongModel;
 import 'package:on_audio_query/on_audio_query.dart' as oaq show SongModel;
 import 'package:permission_handler/permission_handler.dart';

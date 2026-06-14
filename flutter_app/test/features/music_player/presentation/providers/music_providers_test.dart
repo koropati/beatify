@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:just_audio/just_audio.dart' show LoopMode;
 import 'package:mockito/mockito.dart';
 import 'package:flutter_app/features/music_player/domain/entities/song_entity.dart';
 import 'package:flutter_app/features/music_player/presentation/providers/music_providers.dart';
@@ -162,6 +163,43 @@ void main() {
       container.read(currentSongProvider.notifier).state = null;
 
       expect(container.read(currentSongProvider), isNull);
+    });
+  });
+
+  group('provider wiring & state providers', () {
+    test('core providers can be constructed', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(container.read(dioProvider), isNotNull);
+      expect(container.read(remoteDataSourceProvider), isNotNull);
+      expect(container.read(localDataSourceProvider), isNotNull);
+      expect(container.read(musicRepositoryProvider), isNotNull);
+      expect(container.read(getOnlineSongsUseCaseProvider), isNotNull);
+      expect(container.read(getLocalSongsUseCaseProvider), isNotNull);
+    });
+
+    test('state providers expose defaults and can update', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(container.read(queueProvider), isEmpty);
+      expect(container.read(queueIndexProvider), 0);
+      expect(container.read(shuffleModeProvider), false);
+      expect(container.read(repeatModeProvider), LoopMode.off);
+      expect(container.read(playbackErrorProvider), isNull);
+
+      container.read(queueProvider.notifier).state = onlineSongs;
+      container.read(queueIndexProvider.notifier).state = 1;
+      container.read(shuffleModeProvider.notifier).state = true;
+      container.read(repeatModeProvider.notifier).state = LoopMode.all;
+      container.read(playbackErrorProvider.notifier).state = 'err';
+
+      expect(container.read(queueProvider).length, 2);
+      expect(container.read(queueIndexProvider), 1);
+      expect(container.read(shuffleModeProvider), true);
+      expect(container.read(repeatModeProvider), LoopMode.all);
+      expect(container.read(playbackErrorProvider), 'err');
     });
   });
 

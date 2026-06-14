@@ -26,7 +26,9 @@ final dioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
+// coverage:ignore-start
 final audioPlayerProvider = Provider<AudioPlayer>((ref) => AudioPlayer());
+// coverage:ignore-end
 
 // --- Data Sources ---
 final remoteDataSourceProvider = Provider<MusicRemoteDataSource>((ref) {
@@ -74,6 +76,8 @@ final shuffleModeProvider = StateProvider<bool>((ref) => false);
 final repeatModeProvider = StateProvider<LoopMode>((ref) => LoopMode.off);
 final playbackErrorProvider = StateProvider<String?>((ref) => null);
 
+// coverage:ignore-start
+// Wraps just_audio AudioPlayer (platform plugin) — verified on device.
 class AudioPlayerController {
   final AudioPlayer _player;
   final Ref _ref;
@@ -180,3 +184,4 @@ class AudioPlayerController {
 final audioPlayerControllerProvider = Provider<AudioPlayerController>((ref) {
   return AudioPlayerController(ref.read(audioPlayerProvider), ref);
 });
+// coverage:ignore-end

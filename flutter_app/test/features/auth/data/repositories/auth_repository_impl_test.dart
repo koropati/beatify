@@ -1,4 +1,3 @@
-import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:flutter_app/features/auth/data/repositories/auth_repository_impl.dart';
@@ -105,6 +104,63 @@ void main() {
       await repository.logout();
 
       verify(mockStorage.deleteToken()).called(1);
+    });
+  });
+
+  group('updateProfile', () {
+    test('success returns Right(UserEntity)', () async {
+      when(mockRemote.updateProfile(any)).thenAnswer((_) async => testUser);
+      final result = await repository.updateProfile('newname');
+      expect(result.isRight(), true);
+    });
+
+    test('data source throws → returns Left', () async {
+      when(mockRemote.updateProfile(any)).thenThrow(Exception('taken'));
+      final result = await repository.updateProfile('newname');
+      expect(result.isLeft(), true);
+    });
+  });
+
+  group('changePassword', () {
+    test('success returns Right(null)', () async {
+      when(mockRemote.changePassword(any, any)).thenAnswer((_) async {});
+      final result = await repository.changePassword('old', 'new');
+      expect(result.isRight(), true);
+    });
+
+    test('data source throws → returns Left', () async {
+      when(mockRemote.changePassword(any, any)).thenThrow(Exception('wrong'));
+      final result = await repository.changePassword('old', 'new');
+      expect(result.isLeft(), true);
+    });
+  });
+
+  group('forgotPassword', () {
+    test('success returns Right(token)', () async {
+      when(mockRemote.forgotPassword(any)).thenAnswer((_) async => '123456');
+      final result = await repository.forgotPassword('u@test.com');
+      expect(result.isRight(), true);
+      result.fold((_) => fail('expected Right'), (t) => expect(t, '123456'));
+    });
+
+    test('data source throws → returns Left', () async {
+      when(mockRemote.forgotPassword(any)).thenThrow(Exception('fail'));
+      final result = await repository.forgotPassword('u@test.com');
+      expect(result.isLeft(), true);
+    });
+  });
+
+  group('resetPassword', () {
+    test('success returns Right(null)', () async {
+      when(mockRemote.resetPassword(any, any)).thenAnswer((_) async {});
+      final result = await repository.resetPassword('123456', 'newpass');
+      expect(result.isRight(), true);
+    });
+
+    test('data source throws → returns Left', () async {
+      when(mockRemote.resetPassword(any, any)).thenThrow(Exception('expired'));
+      final result = await repository.resetPassword('123456', 'newpass');
+      expect(result.isLeft(), true);
     });
   });
 }

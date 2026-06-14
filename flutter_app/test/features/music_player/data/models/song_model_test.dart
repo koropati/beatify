@@ -21,8 +21,9 @@ void main() {
       expect(model.artist, 'Queen');
       expect(model.album, 'A Night at the Opera');
       expect(model.duration, 354);
-      expect(model.uri, 'http://localhost:8000/api/songs/stream/1');
-      expect(model.coverImageUrl, 'http://localhost:8000/api/image/cover.jpg');
+      // fixUrl rewrites localhost origin to the production origin.
+      expect(model.uri, 'https://beatify-api.satriakode.com/api/songs/stream/1');
+      expect(model.coverImageUrl, 'https://beatify-api.satriakode.com/api/image/cover.jpg');
       expect(model.isLocal, false);
     });
 
@@ -73,18 +74,18 @@ void main() {
     });
 
     test('file_url maps to uri field', () {
-      const streamUrl = 'http://localhost:8000/api/songs/stream/99';
       final json = {
         'id': 99,
         'title': 'T',
         'artist': 'A',
         'duration': 100,
-        'file_url': streamUrl,
+        'file_url': 'http://localhost:8000/api/songs/stream/99',
       };
 
       final model = SongModel.fromJson(json);
 
-      expect(model.uri, streamUrl);
+      // localhost origin is normalized to production by fixUrl.
+      expect(model.uri, 'https://beatify-api.satriakode.com/api/songs/stream/99');
     });
   });
 }

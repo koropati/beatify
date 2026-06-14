@@ -108,6 +108,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 onPressed: authState.isLoading
                     ? null
                     : () {
+                        final navigator = Navigator.of(context);
                         ref
                             .read(authStateProvider.notifier)
                             .register(
@@ -118,7 +119,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                             .then((_) {
                           if (!mounted) return;
                           if (!ref.read(authStateProvider).hasError) {
-                            Navigator.of(context).pop();
+                            navigator.pop();
                           }
                         });
                       },

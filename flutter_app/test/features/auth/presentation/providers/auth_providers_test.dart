@@ -33,6 +33,17 @@ void main() {
         authRepositoryProvider.overrideWithValue(mockRepo),
       ]);
 
+  group('provider wiring', () {
+    test('authRepositoryProvider builds the real dependency chain', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(container.read(secureStorageProvider), isNotNull);
+      expect(container.read(authRemoteDataSourceProvider), isNotNull);
+      expect(container.read(authRepositoryProvider), isNotNull);
+    });
+  });
+
   group('AuthNotifier — initial state', () {
     test('starts as loading then resolves to data(null) when no token', () async {
       final container = makeContainer();
@@ -78,7 +89,7 @@ void main() {
       expect(state.value?.email, 'test@test.com');
     });
 
-    test('failed login resets state to data(null)', () async {
+    test('failed login sets state to error', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
       await pump();
@@ -90,7 +101,7 @@ void main() {
       await pump();
 
       final state = container.read(authStateProvider);
-      expect(state.value, isNull);
+      expect(state, isA<AsyncError>());
     });
 
     test('login calls repository with correct arguments', () async {
@@ -126,7 +137,7 @@ void main() {
       verify(mockRepo.login('testuser', 'password')).called(1);
     });
 
-    test('failed register resets state to data(null)', () async {
+    test('failed register sets state to error', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
       await pump();
@@ -140,7 +151,72 @@ void main() {
       await pump();
 
       final state = container.read(authStateProvider);
-      expect(state.value, isNull);
+      expect(state, isA<AsyncError>());
+    });
+  });
+
+  group('AuthNotifier — updateProfile', () {
+    test('success updates state to new user', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      await pump();
+
+      final updated = UserEntity(
+        id: 1, username: 'renamed', email: 'test@test.com', role: 'user', isVerified: false,
+      );
+      when(mockRepo.updateProfile(any)).thenAnswer((_) async => Right(updated));
+
+      final result = await container.read(authStateProvider.notifier).updateProfile('renamed');
+
+      expect(result.isRight(), true);
+      expect(container.read(authStateProvider).value?.username, 'renamed');
+    });
+
+    test('failure returns Left and leaves state unchanged', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      await pump();
+
+      when(mockRepo.updateProfile(any)).thenAnswer((_) async => Left(Exception('taken')));
+
+      final result = await container.read(authStateProvider.notifier).updateProfile('x');
+
+      expect(result.isLeft(), true);
+    });
+  });
+
+  group('AuthNotifier — password flows', () {
+    test('changePassword delegates to repository', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      await pump();
+
+      when(mockRepo.changePassword(any, any)).thenAnswer((_) async => const Right(null));
+
+      final result = await container.read(authStateProvider.notifier).changePassword('old', 'new');
+      expect(result.isRight(), true);
+    });
+
+    test('forgotPassword returns token', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      await pump();
+
+      when(mockRepo.forgotPassword(any)).thenAnswer((_) async => const Right('123456'));
+
+      final result = await container.read(authStateProvider.notifier).forgotPassword('u@test.com');
+      result.fold((_) => fail('expected Right'), (t) => expect(t, '123456'));
+    });
+
+    test('resetPassword delegates to repository', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      await pump();
+
+      when(mockRepo.resetPassword(any, any)).thenAnswer((_) async => const Right(null));
+
+      final result = await container.read(authStateProvider.notifier).resetPassword('t', 'p');
+      expect(result.isRight(), true);
     });
   });
 
