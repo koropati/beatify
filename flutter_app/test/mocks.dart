@@ -3,6 +3,7 @@ import 'package:mockito/annotations.dart';
 import 'package:flutter_app/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:flutter_app/features/music_player/data/datasources/music_remote_data_source.dart';
 import 'package:flutter_app/features/music_player/data/datasources/music_local_data_source.dart';
+import 'package:flutter_app/features/music_player/data/datasources/local_song_override_data_source.dart';
 import 'package:flutter_app/core/network/secure_storage.dart';
 import 'package:flutter_app/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:flutter_app/features/music_player/data/repositories/music_repository_impl.dart';
@@ -11,6 +12,7 @@ import 'package:flutter_app/features/music_player/data/repositories/music_reposi
   AuthRemoteDataSource,
   MusicRemoteDataSource,
   MusicLocalDataSource,
+  LocalSongOverrideDataSource,
   SecureStorage,
   AuthRepositoryImpl,
   MusicRepositoryImpl,

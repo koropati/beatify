@@ -3,6 +3,13 @@ import '../models/song_model.dart';
 
 abstract class MusicRemoteDataSource {
   Future<List<SongModel>> getOnlineSongs();
+  Future<SongModel> uploadSong({
+    required String title,
+    required String artist,
+    String? album,
+    required String filePath,
+    String? coverImagePath,
+  });
 }
 
 class MusicRemoteDataSourceImpl implements MusicRemoteDataSource {
@@ -22,6 +29,39 @@ class MusicRemoteDataSourceImpl implements MusicRemoteDataSource {
       }
     } catch (e) {
       throw Exception("Error fetching online songs: $e");
+    }
+  }
+
+  @override
+  Future<SongModel> uploadSong({
+    required String title,
+    required String artist,
+    String? album,
+    required String filePath,
+    String? coverImagePath,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'title': title,
+        'artist': artist,
+        if (album != null && album.isNotEmpty) 'album': album,
+        'audio_file': await MultipartFile.fromFile(filePath),
+      });
+      if (coverImagePath != null) {
+        formData.files.add(MapEntry(
+          'cover_image',
+          await MultipartFile.fromFile(coverImagePath),
+        ));
+      }
+
+      final response = await dio.post('/songs/upload', data: formData);
+      final code = response.statusCode ?? 0;
+      if (code >= 200 && code < 300) {
+        return SongModel.fromJson(response.data);
+      }
+      throw Exception("Failed to upload song");
+    } catch (e) {
+      throw Exception("Error uploading song: $e");
     }
   }
 }

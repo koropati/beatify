@@ -258,15 +258,7 @@ class _LocalSongTile extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: const Color(0xFF282828),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Icon(Icons.music_note, color: Color(0xFFB3B3B3)),
-            ),
+            _buildSongCover(song.coverImagePath),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -307,6 +299,27 @@ class _LocalSongTile extends ConsumerWidget {
     );
   }
 
+  Widget _buildSongCover(String? path) {
+    if (path != null) {
+      final file = File(path);
+      if (file.existsSync()) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Image.file(file, width: 52, height: 52, fit: BoxFit.cover),
+        );
+      }
+    }
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: const Color(0xFF282828),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Icon(Icons.music_note, color: Color(0xFFB3B3B3)),
+    );
+  }
+
   void _showSongOptions(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
@@ -314,7 +327,313 @@ class _LocalSongTile extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
-      builder: (ctx) => _AddToPlaylistSheet(song: song),
+      builder: (ctx) => _LocalSongOptionsSheet(song: song),
+    );
+  }
+}
+
+class _LocalSongOptionsSheet extends ConsumerWidget {
+  const _LocalSongOptionsSheet({required this.song});
+  final SongEntity song;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final onlineAsync = ref.watch(onlineSongsProvider);
+    final overridesAsync = ref.watch(localSongOverridesProvider);
+
+    final online = onlineAsync.valueOrNull ?? const [];
+    final overrides = overridesAsync.valueOrNull ?? const [];
+    int? backendSongId;
+    for (final o in overrides) {
+      if (o.songId == song.id) {
+        backendSongId = o.backendSongId;
+        break;
+      }
+    }
+    final isPublished = ref
+        .read(isLocalSongPublishedProvider)
+        .call(song, online, backendSongId: backendSongId);
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12, bottom: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: Text(
+                song.title,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Divider(color: Color(0xFF3E3E3E), height: 1),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined, color: Colors.white),
+              title: const Text('Edit info lagu',
+                  style: TextStyle(color: Colors.white)),
+              subtitle: const Text('Ubah judul, penyanyi, album, cover',
+                  style: TextStyle(color: Color(0xFFB3B3B3), fontSize: 12)),
+              onTap: () {
+                Navigator.pop(context);
+                _showEditDialog(context, ref);
+              },
+            ),
+            if (isPublished)
+              const ListTile(
+                leading: Icon(Icons.cloud_done, color: Color(0xFF1DB954)),
+                title: Text('Sudah ada di publik',
+                    style: TextStyle(color: Color(0xFF1DB954))),
+                subtitle: Text('Lagu ini sudah tersedia di server',
+                    style: TextStyle(color: Color(0xFFB3B3B3), fontSize: 12)),
+              )
+            else
+              ListTile(
+                leading: const Icon(Icons.cloud_upload_outlined, color: Colors.white),
+                title: const Text('Upload ke publik',
+                    style: TextStyle(color: Colors.white)),
+                subtitle: const Text('Bagikan lagu ini ke server Beatify',
+                    style: TextStyle(color: Color(0xFFB3B3B3), fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _uploadToPublic(context, ref);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.playlist_add, color: Colors.white),
+              title: const Text('Tambah ke playlist',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: const Color(0xFF282828),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                  ),
+                  builder: (_) => _AddToPlaylistSheet(song: song),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _uploadToPublic(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF1DB954)),
+      ),
+    );
+    final result =
+        await ref.read(uploadLocalSongToPublicUseCaseProvider).call(song);
+    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+    result.fold(
+      (e) => messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+              'Upload gagal: ${e.toString().replaceFirst('Exception: ', '')}'),
+        ),
+      ),
+      (_) {
+        ref.invalidate(onlineSongsProvider);
+        ref.invalidate(localSongOverridesProvider);
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Berhasil di-upload ke publik!'),
+            backgroundColor: Color(0xFF1DB954),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showEditDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (_) => _EditLocalSongDialog(song: song),
+    );
+  }
+}
+
+class _EditLocalSongDialog extends ConsumerStatefulWidget {
+  const _EditLocalSongDialog({required this.song});
+  final SongEntity song;
+
+  @override
+  ConsumerState<_EditLocalSongDialog> createState() =>
+      _EditLocalSongDialogState();
+}
+
+class _EditLocalSongDialogState extends ConsumerState<_EditLocalSongDialog> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _artistController;
+  late final TextEditingController _albumController;
+  String? _pickedCoverPath;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.song.title);
+    _artistController = TextEditingController(text: widget.song.artist);
+    _albumController = TextEditingController(text: widget.song.album ?? '');
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _artistController.dispose();
+    _albumController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickCover() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result?.files.single.path != null) {
+      setState(() => _pickedCoverPath = result!.files.single.path);
+    }
+  }
+
+  Future<void> _save() async {
+    final title = _titleController.text.trim();
+    final artist = _artistController.text.trim();
+    if (title.isEmpty || artist.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Judul dan penyanyi wajib diisi')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final album = _albumController.text.trim();
+    final result = await ref.read(updateLocalSongMetadataUseCaseProvider).call(
+          widget.song.id,
+          title: title,
+          artist: artist,
+          album: album.isEmpty ? null : album,
+          coverImagePath: _pickedCoverPath,
+        );
+    if (!mounted) return;
+    result.fold(
+      (e) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal menyimpan: $e')),
+        );
+      },
+      (_) {
+        ref.invalidate(localSongsProvider);
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Info lagu diperbarui')),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final existingCover = widget.song.coverImagePath;
+    return AlertDialog(
+      backgroundColor: const Color(0xFF282828),
+      title: const Text('Edit Info Lagu', style: TextStyle(color: Colors.white)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: _pickCover,
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3E3E3E),
+                  borderRadius: BorderRadius.circular(8),
+                  image: _coverImage(existingCover),
+                ),
+                child: (_pickedCoverPath == null &&
+                        (existingCover == null ||
+                            !File(existingCover).existsSync()))
+                    ? const Icon(Icons.add_photo_alternate,
+                        color: Color(0xFFB3B3B3), size: 32)
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _editField(_titleController, 'Judul'),
+            const SizedBox(height: 12),
+            _editField(_artistController, 'Penyanyi'),
+            const SizedBox(height: 12),
+            _editField(_albumController, 'Album (opsional)'),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('Batal', style: TextStyle(color: Color(0xFFB3B3B3))),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF1DB954),
+            foregroundColor: Colors.black,
+          ),
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      color: Colors.black, strokeWidth: 2),
+                )
+              : const Text('Simpan'),
+        ),
+      ],
+    );
+  }
+
+  DecorationImage? _coverImage(String? existingCover) {
+    if (_pickedCoverPath != null) {
+      return DecorationImage(
+        image: FileImage(File(_pickedCoverPath!)),
+        fit: BoxFit.cover,
+      );
+    }
+    if (existingCover != null && File(existingCover).existsSync()) {
+      return DecorationImage(
+        image: FileImage(File(existingCover)),
+        fit: BoxFit.cover,
+      );
+    }
+    return null;
+  }
+
+  Widget _editField(TextEditingController controller, String label) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Color(0xFFB3B3B3)),
+        filled: true,
+        fillColor: const Color(0xFF3E3E3E),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: Color(0xFF1DB954), width: 2),
+        ),
+      ),
     );
   }
 }

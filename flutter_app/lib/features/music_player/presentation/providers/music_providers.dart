@@ -4,11 +4,17 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../domain/entities/song_entity.dart';
+import '../../domain/entities/local_song_override_entity.dart';
 import '../../data/datasources/music_remote_data_source.dart';
 import '../../data/datasources/music_local_data_source.dart';
+import '../../data/datasources/local_song_override_data_source.dart';
 import '../../data/repositories/music_repository_impl.dart';
 import '../../domain/usecases/get_online_songs.dart';
 import '../../domain/usecases/get_local_songs.dart';
+import '../../domain/usecases/get_local_song_overrides.dart';
+import '../../domain/usecases/update_local_song_metadata.dart';
+import '../../domain/usecases/upload_local_song_to_public.dart';
+import '../../domain/usecases/is_local_song_published.dart';
 
 import '../../../../core/network/auth_interceptor.dart';
 import '../../../../core/config/app_config.dart';
@@ -39,11 +45,17 @@ final localDataSourceProvider = Provider<MusicLocalDataSource>((ref) {
   return MusicLocalDataSourceImpl();
 });
 
+final localSongOverrideDataSourceProvider =
+    Provider<LocalSongOverrideDataSource>((ref) {
+  return LocalSongOverrideDataSourceImpl();
+});
+
 // --- Repository ---
 final musicRepositoryProvider = Provider<MusicRepositoryImpl>((ref) {
   return MusicRepositoryImpl(
     remoteDataSource: ref.read(remoteDataSourceProvider),
     localDataSource: ref.read(localDataSourceProvider),
+    overrideDataSource: ref.read(localSongOverrideDataSourceProvider),
   );
 });
 
@@ -56,6 +68,25 @@ final getLocalSongsUseCaseProvider = Provider<GetLocalSongs>((ref) {
   return GetLocalSongs(ref.read(musicRepositoryProvider));
 });
 
+final getLocalSongOverridesUseCaseProvider =
+    Provider<GetLocalSongOverrides>((ref) {
+  return GetLocalSongOverrides(ref.read(musicRepositoryProvider));
+});
+
+final updateLocalSongMetadataUseCaseProvider =
+    Provider<UpdateLocalSongMetadata>((ref) {
+  return UpdateLocalSongMetadata(ref.read(musicRepositoryProvider));
+});
+
+final uploadLocalSongToPublicUseCaseProvider =
+    Provider<UploadLocalSongToPublic>((ref) {
+  return UploadLocalSongToPublic(ref.read(musicRepositoryProvider));
+});
+
+final isLocalSongPublishedProvider = Provider<IsLocalSongPublished>((ref) {
+  return IsLocalSongPublished();
+});
+
 // --- State Providers ---
 final onlineSongsProvider = FutureProvider<List<SongEntity>>((ref) async {
   final result = await ref.read(getOnlineSongsUseCaseProvider).execute();
@@ -65,6 +96,12 @@ final onlineSongsProvider = FutureProvider<List<SongEntity>>((ref) async {
 final localSongsProvider = FutureProvider<List<SongEntity>>((ref) async {
   final result = await ref.read(getLocalSongsUseCaseProvider).execute();
   return result.fold((failure) => throw failure, (songs) => songs);
+});
+
+final localSongOverridesProvider =
+    FutureProvider<List<LocalSongOverrideEntity>>((ref) async {
+  final result = await ref.read(getLocalSongOverridesUseCaseProvider).call();
+  return result.fold((failure) => throw failure, (overrides) => overrides);
 });
 
 // --- Audio Player State ---
@@ -114,7 +151,11 @@ class AudioPlayerController {
         title: song.title,
         artist: song.artist,
         album: song.album,
-        artUri: song.coverImageUrl != null ? Uri.tryParse(song.coverImageUrl!) : null,
+        artUri: song.coverImagePath != null
+            ? Uri.file(song.coverImagePath!)
+            : (song.coverImageUrl != null
+                ? Uri.tryParse(song.coverImageUrl!)
+                : null),
       ),
     );
   }

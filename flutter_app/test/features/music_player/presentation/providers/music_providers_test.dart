@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart' show LoopMode;
 import 'package:mockito/mockito.dart';
+import 'package:flutter_app/features/music_player/domain/entities/local_song_override_entity.dart';
 import 'package:flutter_app/features/music_player/domain/entities/song_entity.dart';
 import 'package:flutter_app/features/music_player/presentation/providers/music_providers.dart';
 import '../../../../mocks.mocks.dart';
@@ -137,6 +138,34 @@ void main() {
     });
   });
 
+  group('localSongOverridesProvider', () {
+    test('returns overrides on success', () async {
+      when(mockRepo.getLocalSongOverrides()).thenAnswer(
+          (_) async => const Right([LocalSongOverrideEntity(songId: '10', title: 'T')]));
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final result = await container.read(localSongOverridesProvider.future);
+
+      expect(result.length, 1);
+      expect(result.first.songId, '10');
+    });
+
+    test('throws when repository returns Left', () async {
+      when(mockRepo.getLocalSongOverrides())
+          .thenAnswer((_) async => Left(Exception('db error')));
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      expect(
+        () => container.read(localSongOverridesProvider.future),
+        throwsA(isA<Exception>()),
+      );
+    });
+  });
+
   group('currentSongProvider', () {
     test('initial state is null', () {
       final container = makeContainer();
@@ -174,9 +203,14 @@ void main() {
       expect(container.read(dioProvider), isNotNull);
       expect(container.read(remoteDataSourceProvider), isNotNull);
       expect(container.read(localDataSourceProvider), isNotNull);
+      expect(container.read(localSongOverrideDataSourceProvider), isNotNull);
       expect(container.read(musicRepositoryProvider), isNotNull);
       expect(container.read(getOnlineSongsUseCaseProvider), isNotNull);
       expect(container.read(getLocalSongsUseCaseProvider), isNotNull);
+      expect(container.read(getLocalSongOverridesUseCaseProvider), isNotNull);
+      expect(container.read(updateLocalSongMetadataUseCaseProvider), isNotNull);
+      expect(container.read(uploadLocalSongToPublicUseCaseProvider), isNotNull);
+      expect(container.read(isLocalSongPublishedProvider), isNotNull);
     });
 
     test('state providers expose defaults and can update', () {
