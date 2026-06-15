@@ -72,6 +72,12 @@ final deviceBookFilesProvider = FutureProvider<List<BookFileEntity>>((ref) async
 /// Free-text query used to filter the book and file lists.
 final bookSearchQueryProvider = StateProvider<String>((ref) => '');
 
+/// How the book gallery is laid out.
+enum BookViewMode { list, grid }
+
+/// Selected layout for the book gallery (list rows or bookshelf grid).
+final bookViewModeProvider = StateProvider<BookViewMode>((ref) => BookViewMode.list);
+
 List<T> _filterByName<T>(List<T> items, String query, String Function(T) name) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return items;

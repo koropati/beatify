@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/book_entity.dart';
 import '../../domain/entities/book_file_entity.dart';
 import '../providers/reading_book_providers.dart';
+import '../widgets/book_cover.dart';
 import 'book_reader_page.dart';
 
 class ReadingBookPage extends ConsumerStatefulWidget {
@@ -15,6 +16,13 @@ class ReadingBookPage extends ConsumerStatefulWidget {
 class _ReadingBookPageState extends ConsumerState<ReadingBookPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController = TabController(length: 3, vsync: this);
+
+  @override
+  void initState() {
+    super.initState();
+    // Rebuild so the view-mode toggle shows/hides as the active tab changes.
+    _tabController.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
@@ -37,6 +45,24 @@ class _ReadingBookPageState extends ConsumerState<ReadingBookPage>
             color: Colors.white,
           ),
         ),
+        actions: [
+          if (_tabController.index < 2)
+            Builder(
+              builder: (context) {
+                final mode = ref.watch(bookViewModeProvider);
+                final isList = mode == BookViewMode.list;
+                return IconButton(
+                  tooltip: isList ? 'Tampilan rak (grid)' : 'Tampilan daftar',
+                  icon: Icon(
+                    isList ? Icons.grid_view : Icons.view_list,
+                    color: Colors.white,
+                  ),
+                  onPressed: () => ref.read(bookViewModeProvider.notifier).state =
+                      isList ? BookViewMode.grid : BookViewMode.list,
+                );
+              },
+            ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: const Color(0xFF1DB954),
@@ -149,11 +175,7 @@ class _GalleryTab extends ConsumerWidget {
         return RefreshIndicator(
           color: const Color(0xFF1DB954),
           onRefresh: () async => ref.invalidate(bookGalleryProvider),
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: books.length,
-            itemBuilder: (_, i) => _BookTile(book: books[i]),
-          ),
+          child: _BookCollection(books: books),
         );
       },
       loading: () => const _Loading(),
@@ -178,14 +200,162 @@ class _FavoritesTab extends ConsumerWidget {
             hint: searching ? 'Coba kata kunci lain' : 'Tandai buku dengan ikon hati',
           );
         }
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: books.length,
-          itemBuilder: (_, i) => _BookTile(book: books[i]),
-        );
+        return _BookCollection(books: books);
       },
       loading: () => const _Loading(),
       error: (e, _) => _ErrorState(onRetry: () => ref.invalidate(bookGalleryProvider)),
+    );
+  }
+}
+
+/// Renders a list of books either as rows or as a bookshelf grid, depending on
+/// [bookViewModeProvider].
+class _BookCollection extends ConsumerWidget {
+  const _BookCollection({required this.books});
+  final List<BookEntity> books;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(bookViewModeProvider);
+    if (mode == BookViewMode.grid) {
+      return GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          childAspectRatio: 0.56,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 16,
+        ),
+        itemCount: books.length,
+        itemBuilder: (_, i) => _BookGridTile(book: books[i]),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: books.length,
+      itemBuilder: (_, i) => _BookTile(book: books[i]),
+    );
+  }
+}
+
+void _showBookActions(BuildContext context, WidgetRef ref, BookEntity book) {
+  final controller = ref.read(bookGalleryControllerProvider);
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: const Color(0xFF1A1A2E),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              book.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ),
+          ListTile(
+            leading: Icon(
+              book.isFavorite ? Icons.favorite : Icons.favorite_border,
+              color: const Color(0xFFE91E63),
+            ),
+            title: Text(
+              book.isFavorite ? 'Hapus dari favorit' : 'Tandai favorit',
+              style: const TextStyle(color: Colors.white),
+            ),
+            onTap: () {
+              controller.toggleFavorite(book.id, !book.isFavorite);
+              Navigator.of(sheetContext).pop();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_outline, color: Color(0xFFB3B3B3)),
+            title: const Text('Hapus dari galeri', style: TextStyle(color: Colors.white)),
+            onTap: () {
+              controller.removeFromGallery(book.id);
+              Navigator.of(sheetContext).pop();
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _BookGridTile extends ConsumerWidget {
+  const _BookGridTile({required this.book});
+  final BookEntity book;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(bookGalleryControllerProvider);
+    return GestureDetector(
+      onTap: () => _openBook(context, ref, book),
+      onLongPress: () => _showBookActions(context, ref, book),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black54, blurRadius: 6, offset: Offset(0, 3)),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: BookCover(filePath: book.filePath),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: () => controller.toggleFavorite(book.id, !book.isFavorite),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        book.isFavorite ? Icons.favorite : Icons.favorite_border,
+                        size: 16,
+                        color: book.isFavorite ? const Color(0xFFE91E63) : Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            book.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+          Text(
+            book.lastPage > 0 ? 'Hal. ${book.lastPage + 1}' : 'Belum dibaca',
+            style: const TextStyle(color: Color(0xFFB3B3B3), fontSize: 11),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -246,14 +416,13 @@ class _BookTile extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        leading: Container(
+        leading: SizedBox(
           width: 44,
           height: 56,
-          decoration: BoxDecoration(
-            color: const Color(0xFF282828),
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(6),
+            child: BookCover(filePath: book.filePath),
           ),
-          child: const Icon(Icons.picture_as_pdf, color: Color(0xFFE91E63)),
         ),
         title: Text(
           book.title,

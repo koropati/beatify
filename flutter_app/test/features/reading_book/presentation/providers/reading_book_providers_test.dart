@@ -99,6 +99,21 @@ void main() {
     });
   });
 
+  group('bookViewModeProvider', () {
+    test('defaults to list', () {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      expect(container.read(bookViewModeProvider), BookViewMode.list);
+    });
+
+    test('can switch to grid', () {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      container.read(bookViewModeProvider.notifier).state = BookViewMode.grid;
+      expect(container.read(bookViewModeProvider), BookViewMode.grid);
+    });
+  });
+
   group('filteredBookGalleryProvider', () {
     setUp(() {
       when(repo.getGallery()).thenAnswer((_) async => Right([
