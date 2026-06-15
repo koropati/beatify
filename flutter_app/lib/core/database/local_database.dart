@@ -15,14 +15,18 @@ class LocalDatabase {
     final dbPath = await getDatabasesPath();
     return openDatabase(
       join(dbPath, 'beatify.db'),
-      version: 2,
+      version: 3,
       onCreate: (db, _) async {
         await _createPlaylistTables(db);
         await _createSongOverridesTable(db);
+        await _createBooksTable(db);
       },
       onUpgrade: (db, oldVersion, _) async {
         if (oldVersion < 2) {
           await _createSongOverridesTable(db);
+        }
+        if (oldVersion < 3) {
+          await _createBooksTable(db);
         }
       },
     );
@@ -63,6 +67,19 @@ class LocalDatabase {
         cover_image_path TEXT,
         backend_song_id INTEGER,
         updated_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  static Future<void> _createBooksTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE books (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        file_path TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        is_favorite INTEGER NOT NULL DEFAULT 0,
+        last_page INTEGER NOT NULL DEFAULT 0,
+        added_at INTEGER NOT NULL
       )
     ''');
   }

@@ -7,6 +7,9 @@ import 'package:flutter_app/features/music_player/data/datasources/local_song_ov
 import 'package:flutter_app/core/network/secure_storage.dart';
 import 'package:flutter_app/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:flutter_app/features/music_player/data/repositories/music_repository_impl.dart';
+import 'package:flutter_app/features/reading_book/data/datasources/book_file_data_source.dart';
+import 'package:flutter_app/features/reading_book/data/datasources/book_library_data_source.dart';
+import 'package:flutter_app/features/reading_book/data/repositories/reading_book_repository_impl.dart';
 
 @GenerateMocks([
   AuthRemoteDataSource,
@@ -16,6 +19,9 @@ import 'package:flutter_app/features/music_player/data/repositories/music_reposi
   SecureStorage,
   AuthRepositoryImpl,
   MusicRepositoryImpl,
+  BookFileDataSource,
+  BookLibraryDataSource,
+  ReadingBookRepositoryImpl,
   Dio,
 ])
 void main() {}

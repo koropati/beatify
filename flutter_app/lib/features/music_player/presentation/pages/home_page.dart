@@ -6,6 +6,7 @@ import '../widgets/mini_player.dart';
 import 'library_page.dart';
 import 'playlists_page.dart';
 import 'upload_song_page.dart';
+import '../../../reading_book/presentation/pages/reading_book_page.dart';
 import '../../../admin/presentation/pages/admin_dashboard_page.dart';
 import '../../../auth/presentation/pages/profile_page.dart';
 import '../../domain/entities/song_entity.dart';
@@ -29,8 +30,10 @@ class _HomePageState extends ConsumerState<HomePage> {
       case 2:
         return const PlaylistsPage();
       case 3:
-        return isAdmin ? const AdminDashboardPage() : const ProfilePage();
+        return const ReadingBookPage();
       case 4:
+        return isAdmin ? const AdminDashboardPage() : const ProfilePage();
+      case 5:
         return const ProfilePage();
       default:
         return const _HomeContent();
@@ -100,6 +103,11 @@ class _HomePageState extends ConsumerState<HomePage> {
             icon: Icon(Icons.queue_music_outlined, color: Color(0xFFB3B3B3)),
             selectedIcon: Icon(Icons.queue_music, color: Color(0xFF1DB954)),
             label: 'Playlists',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.menu_book_outlined, color: Color(0xFFB3B3B3)),
+            selectedIcon: Icon(Icons.menu_book, color: Color(0xFF1DB954)),
+            label: 'Reading',
           ),
           if (isAdmin)
             const NavigationDestination(
