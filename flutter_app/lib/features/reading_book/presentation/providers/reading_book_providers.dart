@@ -69,6 +69,34 @@ final deviceBookFilesProvider = FutureProvider<List<BookFileEntity>>((ref) async
   return result.fold((e) => throw e, (files) => files);
 });
 
+/// Free-text query used to filter the book and file lists.
+final bookSearchQueryProvider = StateProvider<String>((ref) => '');
+
+List<T> _filterByName<T>(List<T> items, String query, String Function(T) name) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return items;
+  return items.where((item) => name(item).toLowerCase().contains(q)).toList();
+}
+
+/// Gallery filtered by [bookSearchQueryProvider].
+final filteredBookGalleryProvider = FutureProvider<List<BookEntity>>((ref) async {
+  final books = await ref.watch(bookGalleryProvider.future);
+  return _filterByName(books, ref.watch(bookSearchQueryProvider), (b) => b.title);
+});
+
+/// Favorites filtered by [bookSearchQueryProvider].
+final filteredFavoriteBooksProvider = FutureProvider<List<BookEntity>>((ref) async {
+  final books = await ref.watch(favoriteBooksProvider.future);
+  return _filterByName(books, ref.watch(bookSearchQueryProvider), (b) => b.title);
+});
+
+/// Device PDF files filtered by [bookSearchQueryProvider].
+final filteredDeviceBookFilesProvider =
+    FutureProvider<List<BookFileEntity>>((ref) async {
+  final files = await ref.watch(deviceBookFilesProvider.future);
+  return _filterByName(files, ref.watch(bookSearchQueryProvider), (f) => f.name);
+});
+
 /// Controller for gallery mutations; refreshes the gallery providers on success.
 class BookGalleryController {
   BookGalleryController(this._ref);

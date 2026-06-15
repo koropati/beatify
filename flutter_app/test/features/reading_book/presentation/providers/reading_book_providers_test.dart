@@ -91,6 +91,124 @@ void main() {
     });
   });
 
+  group('bookSearchQueryProvider', () {
+    test('defaults to empty string', () {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      expect(container.read(bookSearchQueryProvider), '');
+    });
+  });
+
+  group('filteredBookGalleryProvider', () {
+    setUp(() {
+      when(repo.getGallery()).thenAnswer((_) async => Right([
+            book(id: 1),
+            BookEntity(
+              id: 2,
+              filePath: '/2.pdf',
+              title: 'Clean Architecture',
+              addedAt: DateTime.fromMillisecondsSinceEpoch(0),
+            ),
+            BookEntity(
+              id: 3,
+              filePath: '/3.pdf',
+              title: 'Clean Code',
+              addedAt: DateTime.fromMillisecondsSinceEpoch(0),
+            ),
+          ]));
+    });
+
+    test('returns all when query is empty', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final result = await container.read(filteredBookGalleryProvider.future);
+      expect(result.length, 3);
+    });
+
+    test('filters by title (case-insensitive, trimmed)', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      container.read(bookSearchQueryProvider.notifier).state = '  clean  ';
+
+      final result = await container.read(filteredBookGalleryProvider.future);
+      expect(result.map((b) => b.id), [2, 3]);
+    });
+
+    test('returns empty list when nothing matches', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      container.read(bookSearchQueryProvider.notifier).state = 'zzz';
+
+      final result = await container.read(filteredBookGalleryProvider.future);
+      expect(result, isEmpty);
+    });
+  });
+
+  group('filteredFavoriteBooksProvider', () {
+    test('filters favorites by title', () async {
+      when(repo.getGallery()).thenAnswer((_) async => Right([
+            BookEntity(
+              id: 1,
+              filePath: '/1.pdf',
+              title: 'Dune',
+              isFavorite: true,
+              addedAt: DateTime.fromMillisecondsSinceEpoch(0),
+            ),
+            BookEntity(
+              id: 2,
+              filePath: '/2.pdf',
+              title: 'Foundation',
+              isFavorite: true,
+              addedAt: DateTime.fromMillisecondsSinceEpoch(0),
+            ),
+          ]));
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      container.read(bookSearchQueryProvider.notifier).state = 'dune';
+
+      final result = await container.read(filteredFavoriteBooksProvider.future);
+      expect(result.map((b) => b.id), [1]);
+    });
+
+    test('returns all favorites when query empty', () async {
+      when(repo.getGallery()).thenAnswer(
+        (_) async => Right([book(id: 1, fav: true), book(id: 2, fav: true)]),
+      );
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final result = await container.read(filteredFavoriteBooksProvider.future);
+      expect(result.length, 2);
+    });
+  });
+
+  group('filteredDeviceBookFilesProvider', () {
+    setUp(() {
+      when(repo.scanDevicePdfs()).thenAnswer((_) async => const Right([
+            BookFileEntity(path: '/a/novel.pdf', name: 'novel.pdf', sizeBytes: 1),
+            BookFileEntity(path: '/a/report.pdf', name: 'report.pdf', sizeBytes: 1),
+          ]));
+    });
+
+    test('returns all when query empty', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final result = await container.read(filteredDeviceBookFilesProvider.future);
+      expect(result.length, 2);
+    });
+
+    test('filters by file name', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      container.read(bookSearchQueryProvider.notifier).state = 'NOVEL';
+
+      final result = await container.read(filteredDeviceBookFilesProvider.future);
+      expect(result.map((f) => f.name), ['novel.pdf']);
+    });
+  });
+
   group('provider wiring', () {
     test('default data source & repository providers construct', () {
       final container = ProviderContainer();

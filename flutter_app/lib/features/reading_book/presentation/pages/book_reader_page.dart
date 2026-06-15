@@ -30,6 +30,7 @@ class BookReaderPage extends StatefulWidget {
 class _BookReaderPageState extends State<BookReaderPage> {
   final _flipController = PageFlipController();
   final _cache = <int, Uint8List?>{};
+  final _thumbCache = <int, Uint8List?>{};
   final _currentPageNotifier = ValueNotifier<int>(0);
   Future<void> _renderQueue = Future<void>.value();
 
@@ -38,6 +39,7 @@ class _BookReaderPageState extends State<BookReaderPage> {
   int _pageCount = 0;
   int _currentPage = 0;
   bool _loading = true;
+  bool _showNavigator = false;
   String? _error;
 
   @override
@@ -115,6 +117,50 @@ class _BookReaderPageState extends State<BookReaderPage> {
     return completer.future;
   }
 
+  /// Renders a small thumbnail for the page navigator. Cached separately from
+  /// the full-resolution page bitmaps.
+  Future<Uint8List?> _renderThumb(int index) {
+    final completer = Completer<Uint8List?>();
+    _renderQueue = _renderQueue.then((_) async {
+      if (_thumbCache.containsKey(index)) {
+        completer.complete(_thumbCache[index]);
+        return;
+      }
+      final doc = _doc;
+      if (doc == null) {
+        completer.complete(null);
+        return;
+      }
+      try {
+        final page = await doc.getPage(index + 1);
+        const width = 140.0;
+        final height = page.height * (width / page.width);
+        final image = await page.render(
+          width: width,
+          height: height,
+          format: PdfPageImageFormat.jpeg,
+          backgroundColor: '#FFFFFF',
+        );
+        await page.close();
+        _thumbCache[index] = image?.bytes;
+        completer.complete(image?.bytes);
+      } catch (_) {
+        _thumbCache[index] = null;
+        completer.complete(null);
+      }
+    });
+    return completer.future;
+  }
+
+  /// Jumps directly to [index], e.g. from the page navigator.
+  void _goToPage(int index) {
+    final clamped = index.clamp(0, max(0, _pageCount - 1)).toInt();
+    _flipController.goToPage(clamped);
+    _currentPageNotifier.value = clamped;
+    if (clamped != _currentPage) setState(() => _currentPage = clamped);
+    _evictOutside(clamped);
+  }
+
   /// Drops cached bitmaps further than [BookReaderPage.cacheRadius] from
   /// [center] to keep memory bounded.
   void _evictOutside(int center) {
@@ -156,16 +202,22 @@ class _BookReaderPageState extends State<BookReaderPage> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         actions: [
-          if (!_loading && _error == null)
+          if (!_loading && _error == null && _pageCount > 0) ...[
             Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Text(
-                  '${_currentPage + 1} / $_pageCount',
-                  style: const TextStyle(color: Color(0xFFB3B3B3), fontSize: 13),
-                ),
+              child: Text(
+                '${_currentPage + 1} / $_pageCount',
+                style: const TextStyle(color: Color(0xFFB3B3B3), fontSize: 13),
               ),
             ),
+            IconButton(
+              tooltip: 'Daftar halaman',
+              icon: Icon(
+                _showNavigator ? Icons.grid_view : Icons.grid_view_outlined,
+                color: _showNavigator ? const Color(0xFF1DB954) : Colors.white,
+              ),
+              onPressed: () => setState(() => _showNavigator = !_showNavigator),
+            ),
+          ],
         ],
       ),
       body: _buildBody(),
@@ -192,14 +244,185 @@ class _BookReaderPageState extends State<BookReaderPage> {
       );
     }
 
-    return PageFlipWidget(
-      key: ValueKey(widget.book.id),
-      controller: _flipController,
-      backgroundColor: _BookReaderColors.paper,
-      initialIndex: _currentPage,
-      lastPage: const _LastPage(),
-      onPageFlipped: _onPageFlipped,
-      children: _pages,
+    return Stack(
+      children: [
+        PageFlipWidget(
+          key: ValueKey(widget.book.id),
+          controller: _flipController,
+          backgroundColor: _BookReaderColors.paper,
+          initialIndex: _currentPage,
+          lastPage: const _LastPage(),
+          onPageFlipped: _onPageFlipped,
+          children: _pages,
+        ),
+        if (_showNavigator)
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: _PageNavigator(
+              pageCount: _pageCount,
+              currentPage: _currentPageNotifier,
+              onGoTo: _goToPage,
+              renderThumb: _renderThumb,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Bottom panel showing a slider and a scrollable thumbnail strip to jump to any
+/// page quickly — handy to resume from a page read on another platform.
+class _PageNavigator extends StatelessWidget {
+  const _PageNavigator({
+    required this.pageCount,
+    required this.currentPage,
+    required this.onGoTo,
+    required this.renderThumb,
+  });
+
+  final int pageCount;
+  final ValueListenable<int> currentPage;
+  final void Function(int index) onGoTo;
+  final Future<Uint8List?> Function(int index) renderThumb;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: currentPage,
+      builder: (context, value, _) {
+        final current = value.clamp(0, max(0, pageCount - 1)).toInt();
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xF21D1A16),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Halaman ${current + 1} dari $pageCount',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+              if (pageCount > 1)
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: const Color(0xFF1DB954),
+                    thumbColor: const Color(0xFF1DB954),
+                    inactiveTrackColor: const Color(0xFF4A4A4A),
+                    overlayColor: const Color(0x331DB954),
+                  ),
+                  child: Slider(
+                    value: current.toDouble(),
+                    min: 0,
+                    max: (pageCount - 1).toDouble(),
+                    divisions: pageCount - 1,
+                    label: '${current + 1}',
+                    onChanged: (v) => onGoTo(v.round()),
+                  ),
+                ),
+              SizedBox(
+                height: 132,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: pageCount,
+                  itemBuilder: (context, index) => _ThumbTile(
+                    index: index,
+                    selected: index == current,
+                    render: renderThumb,
+                    onTap: () => onGoTo(index),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ThumbTile extends StatefulWidget {
+  const _ThumbTile({
+    required this.index,
+    required this.selected,
+    required this.render,
+    required this.onTap,
+  });
+
+  final int index;
+  final bool selected;
+  final Future<Uint8List?> Function(int index) render;
+  final VoidCallback onTap;
+
+  @override
+  State<_ThumbTile> createState() => _ThumbTileState();
+}
+
+class _ThumbTileState extends State<_ThumbTile> {
+  late final Future<Uint8List?> _future = widget.render(widget.index);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        width: 80,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _BookReaderColors.paper,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: widget.selected
+                        ? const Color(0xFF1DB954)
+                        : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: FutureBuilder<Uint8List?>(
+                  future: _future,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF1DB954),
+                          ),
+                        ),
+                      );
+                    }
+                    final bytes = snapshot.data;
+                    if (bytes == null) {
+                      return const Center(
+                        child: Icon(Icons.broken_image_outlined,
+                            color: Color(0xFF9E9E9E), size: 20),
+                      );
+                    }
+                    return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${widget.index + 1}',
+              style: TextStyle(
+                color: widget.selected ? const Color(0xFF1DB954) : const Color(0xFFB3B3B3),
+                fontSize: 12,
+                fontWeight: widget.selected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

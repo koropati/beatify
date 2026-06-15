@@ -49,13 +49,71 @@ class _ReadingBookPageState extends ConsumerState<ReadingBookPage>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          _GalleryTab(),
-          _FavoritesTab(),
-          _FileGalleryTab(),
+      body: Column(
+        children: [
+          const _SearchField(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: const [
+                _GalleryTab(),
+                _FavoritesTab(),
+                _FileGalleryTab(),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _SearchField extends ConsumerStatefulWidget {
+  const _SearchField();
+
+  @override
+  ConsumerState<_SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends ConsumerState<_SearchField> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = ref.watch(bookSearchQueryProvider);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: TextField(
+        controller: _controller,
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+        onChanged: (v) => ref.read(bookSearchQueryProvider.notifier).state = v,
+        decoration: InputDecoration(
+          hintText: 'Cari buku atau file...',
+          hintStyle: const TextStyle(color: Color(0xFF727272)),
+          prefixIcon: const Icon(Icons.search, color: Color(0xFFB3B3B3)),
+          suffixIcon: query.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.clear, color: Color(0xFFB3B3B3)),
+                  onPressed: () {
+                    _controller.clear();
+                    ref.read(bookSearchQueryProvider.notifier).state = '';
+                  },
+                ),
+          filled: true,
+          fillColor: const Color(0xFF1A1A2E),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
       ),
     );
   }
@@ -75,14 +133,17 @@ class _GalleryTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final booksAsync = ref.watch(bookGalleryProvider);
+    final booksAsync = ref.watch(filteredBookGalleryProvider);
+    final searching = ref.watch(bookSearchQueryProvider).trim().isNotEmpty;
     return booksAsync.when(
       data: (books) {
         if (books.isEmpty) {
-          return const _EmptyState(
-            icon: Icons.menu_book_outlined,
-            message: 'Belum ada buku di galeri',
-            hint: 'Tambahkan PDF dari tab Galeri File',
+          return _EmptyState(
+            icon: searching ? Icons.search_off : Icons.menu_book_outlined,
+            message: searching ? 'Tidak ada buku cocok' : 'Belum ada buku di galeri',
+            hint: searching
+                ? 'Coba kata kunci lain'
+                : 'Tambahkan PDF dari tab Galeri File',
           );
         }
         return RefreshIndicator(
@@ -106,14 +167,15 @@ class _FavoritesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final favoritesAsync = ref.watch(favoriteBooksProvider);
+    final favoritesAsync = ref.watch(filteredFavoriteBooksProvider);
+    final searching = ref.watch(bookSearchQueryProvider).trim().isNotEmpty;
     return favoritesAsync.when(
       data: (books) {
         if (books.isEmpty) {
-          return const _EmptyState(
-            icon: Icons.favorite_border,
-            message: 'Belum ada buku favorit',
-            hint: 'Tandai buku dengan ikon hati',
+          return _EmptyState(
+            icon: searching ? Icons.search_off : Icons.favorite_border,
+            message: searching ? 'Tidak ada favorit cocok' : 'Belum ada buku favorit',
+            hint: searching ? 'Coba kata kunci lain' : 'Tandai buku dengan ikon hati',
           );
         }
         return ListView.builder(
@@ -133,8 +195,9 @@ class _FileGalleryTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final filesAsync = ref.watch(deviceBookFilesProvider);
+    final filesAsync = ref.watch(filteredDeviceBookFilesProvider);
     final galleryAsync = ref.watch(bookGalleryProvider);
+    final searching = ref.watch(bookSearchQueryProvider).trim().isNotEmpty;
     final existingPaths = {
       for (final b in (galleryAsync.value ?? const <BookEntity>[])) b.filePath,
     };
@@ -143,9 +206,11 @@ class _FileGalleryTab extends ConsumerWidget {
       data: (files) {
         if (files.isEmpty) {
           return _EmptyState(
-            icon: Icons.folder_open,
-            message: 'Tidak ada PDF ditemukan',
-            hint: 'Tarik ke bawah untuk memindai ulang',
+            icon: searching ? Icons.search_off : Icons.folder_open,
+            message: searching ? 'Tidak ada file cocok' : 'Tidak ada PDF ditemukan',
+            hint: searching
+                ? 'Coba kata kunci lain'
+                : 'Tarik ke bawah untuk memindai ulang',
             onRefresh: () => ref.invalidate(deviceBookFilesProvider),
           );
         }
