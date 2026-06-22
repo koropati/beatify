@@ -97,13 +97,60 @@ void main() {
     });
   });
 
+  group('cacheUser', () {
+    test('saves encoded user json to secure storage', () async {
+      when(mockStorage.saveUser(any)).thenAnswer((_) async {});
+
+      await repository.cacheUser(testUser);
+
+      final captured =
+          verify(mockStorage.saveUser(captureAny)).captured.single as String;
+      expect(captured, contains('"username":"testuser"'));
+      expect(captured, contains('"id":1'));
+    });
+  });
+
+  group('getCachedSession', () {
+    test('returns cached user when token and user json exist', () async {
+      when(mockStorage.getToken()).thenAnswer((_) async => 'token_abc');
+      when(mockStorage.getUser()).thenAnswer((_) async =>
+          '{"id":1,"username":"testuser","email":"test@test.com","profile_picture_url":null,"role":"user","is_verified":false}');
+
+      final user = await repository.getCachedSession();
+
+      expect(user, isNotNull);
+      expect(user!.username, 'testuser');
+      expect(user.id, 1);
+    });
+
+    test('returns null when no token', () async {
+      when(mockStorage.getToken()).thenAnswer((_) async => null);
+
+      final user = await repository.getCachedSession();
+
+      expect(user, isNull);
+      verifyNever(mockStorage.getUser());
+    });
+
+    test('returns null when token exists but no cached user', () async {
+      when(mockStorage.getToken()).thenAnswer((_) async => 'token_abc');
+      when(mockStorage.getUser()).thenAnswer((_) async => null);
+
+      final user = await repository.getCachedSession();
+
+      expect(user, isNull);
+    });
+  });
+
   group('logout', () {
-    test('calls deleteToken on secure storage', () async {
+    test('clears token and cached user from secure storage', () async {
       when(mockStorage.deleteToken()).thenAnswer((_) async {});
+      when(mockStorage.deleteUser()).thenAnswer((_) async {});
 
       await repository.logout();
 
       verify(mockStorage.deleteToken()).called(1);
+      verify(mockStorage.deleteUser()).called(1);
     });
   });
 

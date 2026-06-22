@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dartz/dartz.dart';
 import '../../../../core/network/secure_storage.dart';
 import '../../domain/entities/user_entity.dart';
@@ -40,7 +41,24 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> logout() async => secureStorage.deleteToken();
+  Future<void> cacheUser(UserEntity user) async {
+    await secureStorage.saveUser(jsonEncode(user.toJson()));
+  }
+
+  @override
+  Future<UserEntity?> getCachedSession() async {
+    final token = await secureStorage.getToken();
+    if (token == null) return null;
+    final userJson = await secureStorage.getUser();
+    if (userJson == null) return null;
+    return UserEntity.fromJson(jsonDecode(userJson) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> logout() async {
+    await secureStorage.deleteToken();
+    await secureStorage.deleteUser();
+  }
 
   @override
   Future<Either<Exception, UserEntity>> updateProfile(String username) async {

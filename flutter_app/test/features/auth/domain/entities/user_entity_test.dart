@@ -33,4 +33,26 @@ void main() {
       expect(user.isVerified, false);
     });
   });
+
+  group('UserEntity.toJson', () {
+    test('round-trips through fromJson preserving all fields', () {
+      final user = UserEntity(
+        id: 7,
+        username: 'dewa',
+        email: 'dewa@test.com',
+        profilePictureUrl: 'http://x/img.jpg',
+        role: 'admin',
+        isVerified: true,
+      );
+
+      final restored = UserEntity.fromJson(user.toJson());
+
+      expect(restored.id, 7);
+      expect(restored.username, 'dewa');
+      expect(restored.email, 'dewa@test.com');
+      expect(restored.profilePictureUrl, 'http://x/img.jpg');
+      expect(restored.role, 'admin');
+      expect(restored.isVerified, true);
+    });
+  });
 }

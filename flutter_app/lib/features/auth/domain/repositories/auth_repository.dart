@@ -5,6 +5,8 @@ abstract class AuthRepository {
   Future<Either<Exception, String>> login(String username, String password);
   Future<Either<Exception, UserEntity>> register(String username, String email, String password);
   Future<Either<Exception, UserEntity>> getCurrentUser();
+  Future<void> cacheUser(UserEntity user);
+  Future<UserEntity?> getCachedSession();
   Future<void> logout();
   Future<Either<Exception, UserEntity>> updateProfile(String username);
   Future<Either<Exception, void>> changePassword(String currentPassword, String newPassword);

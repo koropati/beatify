@@ -19,21 +19,40 @@ final authRepositoryProvider = Provider<AuthRepositoryImpl>((ref) {
   );
 });
 
+/// True ketika sesi dipulihkan dari cache lokal tanpa koneksi ke server.
+/// Saat aktif, fitur online dibatasi — hanya musik lokal yang tersedia.
+final isOfflineModeProvider = StateProvider<bool>((ref) => false);
+
 class AuthNotifier extends StateNotifier<AsyncValue<UserEntity?>> {
+  final Ref _ref;
   final AuthRepositoryImpl _repository;
 
-  AuthNotifier(this._repository) : super(const AsyncValue.loading()) {
+  AuthNotifier(this._ref, this._repository) : super(const AsyncValue.loading()) {
     _checkAuthStatus();
   }
 
   Future<void> _checkAuthStatus() async {
     state = const AsyncValue.loading();
     final result = await _repository.getCurrentUser();
-    result.fold(
-      (failure) => state = const AsyncValue.data(null),
-      (user) => state = AsyncValue.data(user),
+    await result.fold(
+      (failure) async {
+        // Server tidak terjangkau: pulihkan sesi offline jika token & cache ada.
+        // 401 sudah menghapus token via interceptor, jadi sesi kedaluwarsa
+        // tidak akan ikut dipulihkan di sini.
+        final cached = await _repository.getCachedSession();
+        _ref.read(isOfflineModeProvider.notifier).state = cached != null;
+        state = AsyncValue.data(cached);
+      },
+      (user) async {
+        _ref.read(isOfflineModeProvider.notifier).state = false;
+        await _repository.cacheUser(user);
+        state = AsyncValue.data(user);
+      },
     );
   }
+
+  /// Coba sambung ulang ke server (mis. dari banner mode offline).
+  Future<void> retryConnection() => _checkAuthStatus();
 
   Future<void> login(String username, String password) async {
     state = const AsyncValue.loading();
@@ -55,6 +74,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserEntity?>> {
 
   Future<void> logout() async {
     await _repository.logout();
+    _ref.read(isOfflineModeProvider.notifier).state = false;
     state = const AsyncValue.data(null);
   }
 
@@ -78,5 +98,5 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserEntity?>> {
 }
 
 final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<UserEntity?>>((ref) {
-  return AuthNotifier(ref.read(authRepositoryProvider));
+  return AuthNotifier(ref, ref.read(authRepositoryProvider));
 });

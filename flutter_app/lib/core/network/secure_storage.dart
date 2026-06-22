@@ -17,4 +17,16 @@ class SecureStorage {
   Future<void> deleteToken() async {
     await _storage.delete(key: 'jwt_token');
   }
+
+  Future<void> saveUser(String userJson) async {
+    await _storage.write(key: 'cached_user', value: userJson);
+  }
+
+  Future<String?> getUser() async {
+    return await _storage.read(key: 'cached_user');
+  }
+
+  Future<void> deleteUser() async {
+    await _storage.delete(key: 'cached_user');
+  }
 }

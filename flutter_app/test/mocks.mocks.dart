@@ -399,6 +399,32 @@ class MockSecureStorage extends _i1.Mock implements _i5.SecureStorage {
             returnValueForMissingStub: _i12.Future<void>.value(),
           )
           as _i12.Future<void>);
+
+  @override
+  _i12.Future<void> saveUser(String? userJson) =>
+      (super.noSuchMethod(
+            Invocation.method(#saveUser, [userJson]),
+            returnValue: _i12.Future<void>.value(),
+            returnValueForMissingStub: _i12.Future<void>.value(),
+          )
+          as _i12.Future<void>);
+
+  @override
+  _i12.Future<String?> getUser() =>
+      (super.noSuchMethod(
+            Invocation.method(#getUser, []),
+            returnValue: _i12.Future<String?>.value(),
+          )
+          as _i12.Future<String?>);
+
+  @override
+  _i12.Future<void> deleteUser() =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteUser, []),
+            returnValue: _i12.Future<void>.value(),
+            returnValueForMissingStub: _i12.Future<void>.value(),
+          )
+          as _i12.Future<void>);
 }
 
 /// A class which mocks [AuthRepositoryImpl].
@@ -479,6 +505,23 @@ class MockAuthRepositoryImpl extends _i1.Mock
                 ),
           )
           as _i12.Future<_i6.Either<Exception, _i2.UserEntity>>);
+
+  @override
+  _i12.Future<void> cacheUser(_i2.UserEntity? user) =>
+      (super.noSuchMethod(
+            Invocation.method(#cacheUser, [user]),
+            returnValue: _i12.Future<void>.value(),
+            returnValueForMissingStub: _i12.Future<void>.value(),
+          )
+          as _i12.Future<void>);
+
+  @override
+  _i12.Future<_i2.UserEntity?> getCachedSession() =>
+      (super.noSuchMethod(
+            Invocation.method(#getCachedSession, []),
+            returnValue: _i12.Future<_i2.UserEntity?>.value(),
+          )
+          as _i12.Future<_i2.UserEntity?>);
 
   @override
   _i12.Future<void> logout() =>

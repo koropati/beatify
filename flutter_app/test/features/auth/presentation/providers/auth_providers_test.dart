@@ -27,6 +27,8 @@ void main() {
     mockRepo = MockAuthRepositoryImpl();
     when(mockRepo.getCurrentUser())
         .thenAnswer((_) async => Left(Exception('No token')));
+    when(mockRepo.getCachedSession()).thenAnswer((_) async => null);
+    when(mockRepo.cacheUser(any)).thenAnswer((_) async {});
   });
 
   ProviderContainer makeContainer() => ProviderContainer(overrides: [
@@ -70,12 +72,82 @@ void main() {
       final state = container.read(authStateProvider);
       expect(state.value?.username, 'testuser');
     });
+
+    test('caches user and clears offline mode on successful online check',
+        () async {
+      when(mockRepo.getCurrentUser()).thenAnswer((_) async => Right(testUser));
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      container.read(authStateProvider);
+      await pump();
+
+      verify(mockRepo.cacheUser(testUser)).called(1);
+      expect(container.read(isOfflineModeProvider), isFalse);
+    });
+  });
+
+  group('AuthNotifier — offline fallback', () {
+    test('restores cached session and enables offline mode when server is down',
+        () async {
+      when(mockRepo.getCurrentUser())
+          .thenAnswer((_) async => Left(Exception('Connection refused')));
+      when(mockRepo.getCachedSession()).thenAnswer((_) async => testUser);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      container.read(authStateProvider);
+      await pump();
+
+      final state = container.read(authStateProvider);
+      expect(state.value?.username, 'testuser');
+      expect(container.read(isOfflineModeProvider), isTrue);
+    });
+
+    test('stays logged out (offline mode off) when no cached session', () async {
+      when(mockRepo.getCurrentUser())
+          .thenAnswer((_) async => Left(Exception('Connection refused')));
+      when(mockRepo.getCachedSession()).thenAnswer((_) async => null);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      container.read(authStateProvider);
+      await pump();
+
+      expect(container.read(authStateProvider).value, isNull);
+      expect(container.read(isOfflineModeProvider), isFalse);
+    });
+
+    test('retryConnection re-checks and exits offline mode when back online',
+        () async {
+      when(mockRepo.getCurrentUser())
+          .thenAnswer((_) async => Left(Exception('Connection refused')));
+      when(mockRepo.getCachedSession()).thenAnswer((_) async => testUser);
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      container.read(authStateProvider);
+      await pump();
+      expect(container.read(isOfflineModeProvider), isTrue);
+
+      when(mockRepo.getCurrentUser()).thenAnswer((_) async => Right(testUser));
+      await container.read(authStateProvider.notifier).retryConnection();
+      await pump();
+
+      expect(container.read(isOfflineModeProvider), isFalse);
+      expect(container.read(authStateProvider).value?.username, 'testuser');
+    });
   });
 
   group('AuthNotifier — login', () {
     test('successful login sets state to data(user)', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
+      container.read(authStateProvider); // create notifier & settle init
       await pump();
 
       when(mockRepo.login(any, any)).thenAnswer((_) async => Right('token_abc'));
@@ -92,6 +164,7 @@ void main() {
     test('failed login sets state to error', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
+      container.read(authStateProvider); // create notifier & settle init
       await pump();
 
       when(mockRepo.login(any, any))
@@ -107,12 +180,14 @@ void main() {
     test('login calls repository with correct arguments', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
+      container.read(authStateProvider); // create notifier & settle init
       await pump();
 
       when(mockRepo.login(any, any)).thenAnswer((_) async => Right('token'));
       when(mockRepo.getCurrentUser()).thenAnswer((_) async => Right(testUser));
 
       await container.read(authStateProvider.notifier).login('myuser', 'mypass');
+      await pump();
 
       verify(mockRepo.login('myuser', 'mypass')).called(1);
     });
@@ -122,6 +197,7 @@ void main() {
     test('successful register triggers auto-login', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
+      container.read(authStateProvider); // create notifier & settle init
       await pump();
 
       when(mockRepo.register(any, any, any))
@@ -140,6 +216,7 @@ void main() {
     test('failed register sets state to error', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
+      container.read(authStateProvider); // create notifier & settle init
       await pump();
 
       when(mockRepo.register(any, any, any))
@@ -159,6 +236,7 @@ void main() {
     test('success updates state to new user', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
+      container.read(authStateProvider); // create notifier & settle init
       await pump();
 
       final updated = UserEntity(
@@ -175,6 +253,7 @@ void main() {
     test('failure returns Left and leaves state unchanged', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
+      container.read(authStateProvider); // create notifier & settle init
       await pump();
 
       when(mockRepo.updateProfile(any)).thenAnswer((_) async => Left(Exception('taken')));
@@ -189,6 +268,7 @@ void main() {
     test('changePassword delegates to repository', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
+      container.read(authStateProvider); // create notifier & settle init
       await pump();
 
       when(mockRepo.changePassword(any, any)).thenAnswer((_) async => const Right(null));
@@ -200,6 +280,7 @@ void main() {
     test('forgotPassword returns token', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
+      container.read(authStateProvider); // create notifier & settle init
       await pump();
 
       when(mockRepo.forgotPassword(any)).thenAnswer((_) async => const Right('123456'));
@@ -211,6 +292,7 @@ void main() {
     test('resetPassword delegates to repository', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
+      container.read(authStateProvider); // create notifier & settle init
       await pump();
 
       when(mockRepo.resetPassword(any, any)).thenAnswer((_) async => const Right(null));
@@ -227,12 +309,14 @@ void main() {
 
       final container = makeContainer();
       addTearDown(container.dispose);
+      container.read(authStateProvider); // create notifier & settle init
       await pump();
 
       await container.read(authStateProvider.notifier).logout();
 
       final state = container.read(authStateProvider);
       expect(state.value, isNull);
+      expect(container.read(isOfflineModeProvider), isFalse);
     });
 
     test('logout calls repository.logout()', () async {
@@ -240,6 +324,7 @@ void main() {
 
       final container = makeContainer();
       addTearDown(container.dispose);
+      container.read(authStateProvider); // create notifier & settle init
       await pump();
 
       await container.read(authStateProvider.notifier).logout();

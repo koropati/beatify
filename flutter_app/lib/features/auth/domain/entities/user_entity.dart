@@ -25,4 +25,13 @@ class UserEntity {
       isVerified: json['is_verified'] ?? false,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'username': username,
+        'email': email,
+        'profile_picture_url': profilePictureUrl,
+        'role': role,
+        'is_verified': isVerified,
+      };
 }

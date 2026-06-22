@@ -21,7 +21,7 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   int _selectedIndex = 0;
 
-  Widget _buildPage(int index, bool isAdmin) {
+  Widget _buildPage(int index, bool showAdmin) {
     switch (index) {
       case 0:
         return const _HomeContent();
@@ -32,7 +32,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       case 3:
         return const ReadingBookPage();
       case 4:
-        return isAdmin ? const AdminDashboardPage() : const ProfilePage();
+        return showAdmin ? const AdminDashboardPage() : const ProfilePage();
       case 5:
         return const ProfilePage();
       default:
@@ -44,10 +44,18 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
     final user = authState.value;
+    final isOffline = ref.watch(isOfflineModeProvider);
     final isAdmin = user?.role == 'admin';
     final isVerified = user?.isVerified == true;
-    final canUpload = isAdmin || isVerified;
+    final canUpload = (isAdmin || isVerified) && !isOffline;
+    final showAdmin = isAdmin && !isOffline;
     final hasMiniPlayer = ref.watch(currentSongProvider) != null;
+
+    // Saat masuk mode offline, arahkan ke Library (musik lokal) jika pengguna
+    // masih berada di tab/indeks yang tidak tersedia offline.
+    if (isOffline && (_selectedIndex == 0 || _selectedIndex >= 4)) {
+      _selectedIndex = 1;
+    }
 
     ref.listen(playbackErrorProvider, (prev, next) {
       if (next != null) {
@@ -77,7 +85,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       backgroundColor: const Color(0xFF121212),
       body: Column(
         children: [
-          Expanded(child: _buildPage(_selectedIndex, isAdmin)),
+          if (isOffline) const _OfflineBanner(),
+          Expanded(child: _buildPage(_selectedIndex, showAdmin)),
           const MiniPlayer(),
         ],
       ),
@@ -109,7 +118,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             selectedIcon: Icon(Icons.menu_book, color: Color(0xFF1DB954)),
             label: 'Reading',
           ),
-          if (isAdmin)
+          if (showAdmin)
             const NavigationDestination(
               icon: Icon(Icons.admin_panel_settings_outlined, color: Color(0xFFB3B3B3)),
               selectedIcon: Icon(Icons.admin_panel_settings, color: Color(0xFF1DB954)),
@@ -138,8 +147,39 @@ class _HomeContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isOffline = ref.watch(isOfflineModeProvider);
     final onlineSongsAsync = ref.watch(onlineSongsProvider);
     final user = ref.watch(authStateProvider).value;
+
+    if (isOffline) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cloud_off, size: 64, color: Color(0xFFB3B3B3)),
+              SizedBox(height: 16),
+              Text(
+                'Mode Offline',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Lagu online tidak tersedia tanpa koneksi. '
+                'Buka tab Library untuk mendengarkan musik dari perangkat.',
+                style: TextStyle(color: Color(0xFFB3B3B3), fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return CustomScrollView(
       slivers: [
@@ -330,6 +370,46 @@ class _SongListTile extends ConsumerWidget {
               onPressed: () {},
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OfflineBanner extends ConsumerWidget {
+  const _OfflineBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Material(
+      color: const Color(0xFF3E2723),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              const Icon(Icons.cloud_off, color: Color(0xFFFFB74D), size: 18),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Mode offline — hanya musik lokal yang tersedia',
+                  style: TextStyle(color: Color(0xFFFFB74D), fontSize: 12),
+                ),
+              ),
+              TextButton(
+                onPressed: () =>
+                    ref.read(authStateProvider.notifier).retryConnection(),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 0),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Sambung ulang',
+                    style: TextStyle(color: Color(0xFF1DB954), fontSize: 12)),
+              ),
+            ],
+          ),
         ),
       ),
     );
