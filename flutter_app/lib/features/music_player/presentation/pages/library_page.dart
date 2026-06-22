@@ -477,6 +477,7 @@ class _EditLocalSongDialogState extends ConsumerState<_EditLocalSongDialog> {
   late final TextEditingController _titleController;
   late final TextEditingController _artistController;
   late final TextEditingController _albumController;
+  final FocusNode _artistFocusNode = FocusNode();
   String? _pickedCoverPath;
   bool _saving = false;
 
@@ -493,6 +494,7 @@ class _EditLocalSongDialogState extends ConsumerState<_EditLocalSongDialog> {
     _titleController.dispose();
     _artistController.dispose();
     _albumController.dispose();
+    _artistFocusNode.dispose();
     super.dispose();
   }
 
@@ -570,7 +572,7 @@ class _EditLocalSongDialogState extends ConsumerState<_EditLocalSongDialog> {
             const SizedBox(height: 16),
             _editField(_titleController, 'Judul'),
             const SizedBox(height: 12),
-            _editField(_artistController, 'Penyanyi'),
+            _buildArtistField(),
             const SizedBox(height: 12),
             _editField(_albumController, 'Album (opsional)'),
           ],
@@ -616,9 +618,11 @@ class _EditLocalSongDialogState extends ConsumerState<_EditLocalSongDialog> {
     return null;
   }
 
-  Widget _editField(TextEditingController controller, String label) {
+  Widget _editField(TextEditingController controller, String label,
+      {FocusNode? focusNode}) {
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
@@ -632,6 +636,67 @@ class _EditLocalSongDialogState extends ConsumerState<_EditLocalSongDialog> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
           borderSide: const BorderSide(color: Color(0xFF1DB954), width: 2),
+        ),
+      ),
+    );
+  }
+
+  // Field penyanyi dengan autocomplete dari daftar penyanyi yang sudah ada.
+  Widget _buildArtistField() {
+    final knownArtists = ref.watch(knownArtistsProvider);
+    return RawAutocomplete<String>(
+      textEditingController: _artistController,
+      focusNode: _artistFocusNode,
+      optionsBuilder: (TextEditingValue value) {
+        final query = value.text.trim().toLowerCase();
+        if (query.isEmpty) return const Iterable<String>.empty();
+        return knownArtists.where((a) {
+          final lower = a.toLowerCase();
+          return lower != query && lower.contains(query);
+        });
+      },
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) =>
+          _editField(controller, 'Penyanyi', focusNode: focusNode),
+      optionsViewBuilder: (context, onSelected, options) => Align(
+        alignment: Alignment.topLeft,
+        child: Material(
+          color: const Color(0xFF3E3E3E),
+          elevation: 4,
+          borderRadius: BorderRadius.circular(4),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 180, maxWidth: 280),
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              itemCount: options.length,
+              itemBuilder: (context, index) {
+                final option = options.elementAt(index);
+                return InkWell(
+                  onTap: () => onSelected(option),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_outline,
+                            color: Color(0xFFB3B3B3), size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            option,
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 14),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ),
       ),
     );

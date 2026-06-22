@@ -104,6 +104,22 @@ final localSongOverridesProvider =
   return result.fold((failure) => throw failure, (overrides) => overrides);
 });
 
+/// Nama penyanyi unik (case-insensitive, terurut) dari lagu lokal & online,
+/// dipakai untuk saran autocomplete saat mengedit info lagu.
+final knownArtistsProvider = Provider<List<String>>((ref) {
+  final local = ref.watch(localSongsProvider).valueOrNull ?? const [];
+  final online = ref.watch(onlineSongsProvider).valueOrNull ?? const [];
+  final seen = <String>{};
+  final result = <String>[];
+  for (final song in [...local, ...online]) {
+    final artist = song.artist.trim();
+    if (artist.isEmpty || !seen.add(artist.toLowerCase())) continue;
+    result.add(artist);
+  }
+  result.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  return result;
+});
+
 // --- Audio Player State ---
 final currentSongProvider = StateProvider<SongEntity?>((ref) => null);
 final isPlayingProvider = StateProvider<bool>((ref) => false);

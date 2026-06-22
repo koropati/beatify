@@ -166,6 +166,89 @@ void main() {
     });
   });
 
+  group('knownArtistsProvider', () {
+    test('returns empty list while songs not loaded yet', () {
+      when(mockRepo.getLocalSongs()).thenAnswer((_) async => Right(localSongs));
+      when(mockRepo.getOnlineSongs()).thenAnswer((_) async => Right(onlineSongs));
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      // Belum di-await: kedua FutureProvider masih loading → daftar kosong.
+      expect(container.read(knownArtistsProvider), isEmpty);
+    });
+
+    test('merges local & online artists, deduped case-insensitively & sorted',
+        () async {
+      when(mockRepo.getLocalSongs()).thenAnswer((_) async => Right([
+            SongEntity(
+                id: '10',
+                title: 'L1',
+                artist: 'Tulus',
+                duration: 1,
+                uri: 'a',
+                isLocal: true),
+            SongEntity(
+                id: '11',
+                title: 'L2',
+                artist: 'tulus', // duplikat beda kapital
+                duration: 1,
+                uri: 'b',
+                isLocal: true),
+            SongEntity(
+                id: '12',
+                title: 'L3',
+                artist: '   ', // kosong → diabaikan
+                duration: 1,
+                uri: 'c',
+                isLocal: true),
+          ]));
+      when(mockRepo.getOnlineSongs()).thenAnswer((_) async => Right([
+            SongEntity(
+                id: '1',
+                title: 'O1',
+                artist: 'Adele',
+                duration: 1,
+                uri: 'd',
+                isLocal: false),
+            SongEntity(
+                id: '2',
+                title: 'O2',
+                artist: 'Tulus', // duplikat dengan lokal
+                duration: 1,
+                uri: 'e',
+                isLocal: false),
+          ]));
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      await container.read(localSongsProvider.future);
+      await container.read(onlineSongsProvider.future);
+
+      final artists = container.read(knownArtistsProvider);
+
+      expect(artists, ['Adele', 'Tulus']);
+    });
+
+    test('falls back to local artists when online songs fail to load', () async {
+      when(mockRepo.getLocalSongs()).thenAnswer((_) async => Right(localSongs));
+      when(mockRepo.getOnlineSongs())
+          .thenAnswer((_) async => Left(Exception('offline')));
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      await container.read(localSongsProvider.future);
+      await expectLater(
+        container.read(onlineSongsProvider.future),
+        throwsA(isA<Exception>()),
+      );
+
+      expect(container.read(knownArtistsProvider), ['Me']);
+    });
+  });
+
   group('currentSongProvider', () {
     test('initial state is null', () {
       final container = makeContainer();
