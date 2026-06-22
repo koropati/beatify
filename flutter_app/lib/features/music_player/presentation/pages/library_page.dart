@@ -524,15 +524,26 @@ class _EditLocalSongDialogState extends ConsumerState<_EditLocalSongDialog> {
           coverImagePath: _pickedCoverPath,
         );
     if (!mounted) return;
-    result.fold(
-      (e) {
+    await result.fold(
+      (e) async {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal menyimpan: $e')),
         );
       },
-      (_) {
+      (_) async {
         ref.invalidate(localSongsProvider);
+        // Reflect the edit in the live player (mini player & player page).
+        try {
+          final refreshed = await ref.read(localSongsProvider.future);
+          for (final s in refreshed) {
+            if (s.id == widget.song.id) {
+              ref.read(applySongMetadataUpdateProvider)(s);
+              break;
+            }
+          }
+        } catch (_) {/* refresh failure shouldn't block the save UX */}
+        if (!mounted) return;
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Info lagu diperbarui')),

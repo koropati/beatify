@@ -1,10 +1,28 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/entities/song_entity.dart';
 import '../providers/music_providers.dart';
 import '../pages/player_page.dart';
 
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key});
+
+  Widget _cover(SongEntity song) {
+    const fallback = Icon(Icons.music_note, color: Color(0xFFB3B3B3), size: 20);
+    if (song.coverImageUrl != null) {
+      return Image.network(
+        song.coverImageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback,
+      );
+    }
+    final path = song.coverImagePath;
+    if (path != null && File(path).existsSync()) {
+      return Image.file(File(path), fit: BoxFit.cover);
+    }
+    return fallback;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -58,14 +76,7 @@ class MiniPlayer extends ConsumerWidget {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(4),
-                      child: currentSong.coverImageUrl != null
-                          ? Image.network(
-                              currentSong.coverImageUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, err, stack) =>
-                                  const Icon(Icons.music_note, color: Color(0xFFB3B3B3), size: 20),
-                            )
-                          : const Icon(Icons.music_note, color: Color(0xFFB3B3B3), size: 20),
+                      child: _cover(currentSong),
                     ),
                   ),
                   const SizedBox(width: 12),

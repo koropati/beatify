@@ -1,10 +1,28 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+import '../../domain/entities/song_entity.dart';
 import '../providers/music_providers.dart';
 
 class PlayerPage extends ConsumerWidget {
   const PlayerPage({super.key});
+
+  Widget _albumArt(SongEntity song) {
+    const fallback = Icon(Icons.music_note, size: 80, color: Color(0xFFB3B3B3));
+    if (song.coverImageUrl != null) {
+      return Image.network(
+        song.coverImageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback,
+      );
+    }
+    final path = song.coverImagePath;
+    if (path != null && File(path).existsSync()) {
+      return Image.file(File(path), fit: BoxFit.cover);
+    }
+    return fallback;
+  }
 
   String _formatDuration(Duration d) {
     final m = d.inMinutes.remainder(60).toString();
@@ -83,15 +101,7 @@ class PlayerPage extends ConsumerWidget {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: currentSong.coverImageUrl != null
-                          ? Image.network(
-                              currentSong.coverImageUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stack) => const Icon(
-                                Icons.music_note, size: 80, color: Color(0xFFB3B3B3),
-                              ),
-                            )
-                          : const Icon(Icons.music_note, size: 80, color: Color(0xFFB3B3B3)),
+                      child: _albumArt(currentSong),
                     ),
                   ),
                 ),

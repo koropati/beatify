@@ -249,6 +249,64 @@ void main() {
     });
   });
 
+  group('applySongMetadataUpdateProvider', () {
+    SongEntity makeSong(String id, String title) => SongEntity(
+          id: id,
+          title: title,
+          artist: 'Old Artist',
+          duration: 100,
+          uri: '/x/$id.mp3',
+          isLocal: true,
+        );
+
+    test('updates current song when ids match', () {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      container.read(currentSongProvider.notifier).state = makeSong('10', 'Old');
+
+      final updated = makeSong('10', 'New Title');
+      container.read(applySongMetadataUpdateProvider)(updated);
+
+      expect(container.read(currentSongProvider)?.title, 'New Title');
+    });
+
+    test('leaves current song untouched when ids differ', () {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      container.read(currentSongProvider.notifier).state = makeSong('10', 'Old');
+
+      container.read(applySongMetadataUpdateProvider)(makeSong('99', 'Other'));
+
+      expect(container.read(currentSongProvider)?.title, 'Old');
+    });
+
+    test('replaces matching entry in the queue', () {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      container.read(queueProvider.notifier).state = [
+        makeSong('10', 'Old'),
+        makeSong('11', 'Keep'),
+      ];
+
+      container.read(applySongMetadataUpdateProvider)(makeSong('10', 'New'));
+
+      final queue = container.read(queueProvider);
+      expect(queue[0].title, 'New');
+      expect(queue[1].title, 'Keep');
+    });
+
+    test('does not touch queue when no entry matches', () {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final original = [makeSong('10', 'Old')];
+      container.read(queueProvider.notifier).state = original;
+
+      container.read(applySongMetadataUpdateProvider)(makeSong('99', 'X'));
+
+      expect(identical(container.read(queueProvider), original), true);
+    });
+  });
+
   group('currentSongProvider', () {
     test('initial state is null', () {
       final container = makeContainer();

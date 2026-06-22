@@ -129,6 +129,24 @@ final shuffleModeProvider = StateProvider<bool>((ref) => false);
 final repeatModeProvider = StateProvider<LoopMode>((ref) => LoopMode.off);
 final playbackErrorProvider = StateProvider<String?>((ref) => null);
 
+/// Pushes edited metadata into the live player state so the mini player and
+/// player page reflect title/artist/cover changes immediately (without restart).
+final applySongMetadataUpdateProvider =
+    Provider<void Function(SongEntity)>((ref) {
+  return (SongEntity updated) {
+    final queue = ref.read(queueProvider);
+    if (queue.any((s) => s.id == updated.id)) {
+      ref.read(queueProvider.notifier).state = [
+        for (final s in queue) s.id == updated.id ? updated : s,
+      ];
+    }
+    final current = ref.read(currentSongProvider);
+    if (current != null && current.id == updated.id) {
+      ref.read(currentSongProvider.notifier).state = updated;
+    }
+  };
+});
+
 // coverage:ignore-start
 // Wraps just_audio AudioPlayer (platform plugin) — verified on device.
 class AudioPlayerController {
