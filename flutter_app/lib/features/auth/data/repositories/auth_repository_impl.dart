@@ -61,9 +61,18 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Exception, UserEntity>> updateProfile(String username) async {
+  Future<Either<Exception, UserEntity>> updateProfile(String username, {String? email}) async {
     try {
-      return Right(await remoteDataSource.updateProfile(username));
+      return Right(await remoteDataSource.updateProfile(username, email: email));
+    } catch (e) {
+      return Left(Exception(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Exception, UserEntity>> uploadProfilePicture(String filePath) async {
+    try {
+      return Right(await remoteDataSource.uploadProfilePicture(filePath));
     } catch (e) {
       return Left(Exception(e.toString()));
     }

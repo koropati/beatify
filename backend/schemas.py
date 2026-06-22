@@ -50,6 +50,18 @@ class Song(SongBase):
 # --- User Actions ---
 class UpdateProfile(BaseModel):
     username: str
+    email: Optional[EmailStr] = None
+
+class AdminUpdateUser(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: Optional[str] = None
+    is_verified: Optional[bool] = None
+
+class AdminUpdateSong(BaseModel):
+    title: Optional[str] = None
+    artist: Optional[str] = None
+    album: Optional[str] = None
 
 class ChangePassword(BaseModel):
     current_password: str

@@ -1,7 +1,9 @@
 import os
 os.environ["DATABASE_URL"] = "sqlite:///./test_beatify.db"
 
+import io
 import pytest
+from PIL import Image
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -55,3 +57,10 @@ def verified_user_headers(client, admin_headers, user_headers):
     user_id = client.get("/api/users/me", headers=user_headers).json()["id"]
     client.put(f"/api/admin/users/{user_id}/verify", headers=admin_headers)
     return user_headers
+
+
+@pytest.fixture
+def sample_image_bytes():
+    buf = io.BytesIO()
+    Image.new("RGB", (16, 16), (200, 30, 90)).save(buf, "PNG")
+    return buf.getvalue()

@@ -8,7 +8,8 @@ abstract class AuthRepository {
   Future<void> cacheUser(UserEntity user);
   Future<UserEntity?> getCachedSession();
   Future<void> logout();
-  Future<Either<Exception, UserEntity>> updateProfile(String username);
+  Future<Either<Exception, UserEntity>> updateProfile(String username, {String? email});
+  Future<Either<Exception, UserEntity>> uploadProfilePicture(String filePath);
   Future<Either<Exception, void>> changePassword(String currentPassword, String newPassword);
   Future<Either<Exception, String?>> forgotPassword(String email);
   Future<Either<Exception, void>> resetPassword(String token, String newPassword);

@@ -233,7 +233,7 @@ void main() {
   });
 
   group('AuthNotifier — updateProfile', () {
-    test('success updates state to new user', () async {
+    test('success updates state to new user and caches it', () async {
       final container = makeContainer();
       addTearDown(container.dispose);
       container.read(authStateProvider); // create notifier & settle init
@@ -242,12 +242,17 @@ void main() {
       final updated = UserEntity(
         id: 1, username: 'renamed', email: 'test@test.com', role: 'user', isVerified: false,
       );
-      when(mockRepo.updateProfile(any)).thenAnswer((_) async => Right(updated));
+      when(mockRepo.updateProfile(any, email: anyNamed('email')))
+          .thenAnswer((_) async => Right(updated));
 
-      final result = await container.read(authStateProvider.notifier).updateProfile('renamed');
+      final result = await container
+          .read(authStateProvider.notifier)
+          .updateProfile('renamed', email: 'test@test.com');
+      await pump();
 
       expect(result.isRight(), true);
       expect(container.read(authStateProvider).value?.username, 'renamed');
+      verify(mockRepo.cacheUser(updated)).called(1);
     });
 
     test('failure returns Left and leaves state unchanged', () async {
@@ -256,9 +261,56 @@ void main() {
       container.read(authStateProvider); // create notifier & settle init
       await pump();
 
-      when(mockRepo.updateProfile(any)).thenAnswer((_) async => Left(Exception('taken')));
+      when(mockRepo.updateProfile(any, email: anyNamed('email')))
+          .thenAnswer((_) async => Left(Exception('taken')));
 
       final result = await container.read(authStateProvider.notifier).updateProfile('x');
+
+      expect(result.isLeft(), true);
+    });
+  });
+
+  group('AuthNotifier — uploadProfilePicture', () {
+    test('success updates state with new user and caches it', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      container.read(authStateProvider);
+      await pump();
+
+      final withPhoto = UserEntity(
+        id: 1,
+        username: 'testuser',
+        email: 'test@test.com',
+        profilePictureUrl: 'http://x/p.webp',
+        role: 'user',
+        isVerified: false,
+      );
+      when(mockRepo.uploadProfilePicture(any))
+          .thenAnswer((_) async => Right(withPhoto));
+
+      final result = await container
+          .read(authStateProvider.notifier)
+          .uploadProfilePicture('/tmp/a.png');
+      await pump();
+
+      expect(result.isRight(), true);
+      expect(container.read(authStateProvider).value?.profilePictureUrl,
+          'http://x/p.webp');
+      verify(mockRepo.cacheUser(withPhoto)).called(1);
+    });
+
+    test('failure returns Left and leaves state unchanged', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      container.read(authStateProvider);
+      await pump();
+
+      when(mockRepo.uploadProfilePicture(any))
+          .thenAnswer((_) async => Left(Exception('bad image')));
+
+      final result = await container
+          .read(authStateProvider.notifier)
+          .uploadProfilePicture('/tmp/a.png');
 
       expect(result.isLeft(), true);
     });

@@ -5,7 +5,8 @@ abstract class AuthRemoteDataSource {
   Future<String> login(String username, String password);
   Future<UserEntity> register(String username, String email, String password);
   Future<UserEntity> getCurrentUser();
-  Future<UserEntity> updateProfile(String username);
+  Future<UserEntity> updateProfile(String username, {String? email});
+  Future<UserEntity> uploadProfilePicture(String filePath);
   Future<void> changePassword(String currentPassword, String newPassword);
   Future<String?> forgotPassword(String email);
   Future<void> resetPassword(String token, String newPassword);
@@ -56,13 +57,31 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
-  Future<UserEntity> updateProfile(String username) async {
+  Future<UserEntity> updateProfile(String username, {String? email}) async {
     try {
-      final response = await dio.put('/users/me', data: {'username': username});
+      final response = await dio.put('/users/me', data: {
+        'username': username,
+        if (email != null && email.isNotEmpty) 'email': email,
+      });
       if (response.statusCode == 200) return UserEntity.fromJson(response.data);
       throw Exception("Failed to update profile");
     } on DioException catch (e) {
       throw Exception(e.response?.data['detail'] ?? "Error updating profile");
+    }
+  }
+
+  @override
+  Future<UserEntity> uploadProfilePicture(String filePath) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(filePath),
+      });
+      final response = await dio.post('/users/me/picture', data: formData);
+      final code = response.statusCode ?? 0;
+      if (code >= 200 && code < 300) return UserEntity.fromJson(response.data);
+      throw Exception("Failed to upload profile picture");
+    } on DioException catch (e) {
+      throw Exception(e.response?.data['detail'] ?? "Error uploading picture");
     }
   }
 

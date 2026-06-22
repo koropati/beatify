@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
@@ -95,6 +96,27 @@ void main() {
       expect(user.email, 'u@test.com');
     });
 
+    test('sends email in payload when provided', () async {
+      when(dio.put(any, data: anyNamed('data')))
+          .thenAnswer((_) async => _resp(200, _userJson));
+      await ds.updateProfile('newname', email: 'new@test.com');
+      final data = verify(dio.put(any, data: captureAnyNamed('data')))
+          .captured
+          .single as Map;
+      expect(data['email'], 'new@test.com');
+      expect(data['username'], 'newname');
+    });
+
+    test('omits email when empty', () async {
+      when(dio.put(any, data: anyNamed('data')))
+          .thenAnswer((_) async => _resp(200, _userJson));
+      await ds.updateProfile('newname', email: '');
+      final data = verify(dio.put(any, data: captureAnyNamed('data')))
+          .captured
+          .single as Map;
+      expect(data.containsKey('email'), false);
+    });
+
     test('throws on non-200', () async {
       when(dio.put(any, data: anyNamed('data'))).thenAnswer((_) async => _resp(400));
       expect(() => ds.updateProfile('x'), throwsA(isA<Exception>()));
@@ -104,6 +126,39 @@ void main() {
       when(dio.put(any, data: anyNamed('data'))).thenThrow(_dioErr('Username taken'));
       expect(() => ds.updateProfile('x'),
           throwsA(predicate((e) => '$e'.contains('Username taken'))));
+    });
+  });
+
+  group('uploadProfilePicture', () {
+    late Directory tmpDir;
+    late String picturePath;
+
+    setUp(() async {
+      tmpDir = await Directory.systemTemp.createTemp('beatify_pic');
+      picturePath = '${tmpDir.path}/avatar.png';
+      await File(picturePath).writeAsBytes([1, 2, 3, 4]);
+    });
+
+    tearDown(() async {
+      if (await tmpDir.exists()) await tmpDir.delete(recursive: true);
+    });
+
+    test('returns UserEntity on 2xx', () async {
+      when(dio.post(any, data: anyNamed('data')))
+          .thenAnswer((_) async => _resp(200, _userJson));
+      final user = await ds.uploadProfilePicture(picturePath);
+      expect(user.id, 1);
+    });
+
+    test('throws on non-2xx', () async {
+      when(dio.post(any, data: anyNamed('data'))).thenAnswer((_) async => _resp(500));
+      expect(() => ds.uploadProfilePicture(picturePath), throwsA(isA<Exception>()));
+    });
+
+    test('throws with detail on DioException', () async {
+      when(dio.post(any, data: anyNamed('data'))).thenThrow(_dioErr('Not an image'));
+      expect(() => ds.uploadProfilePicture(picturePath),
+          throwsA(predicate((e) => '$e'.contains('Not an image'))));
     });
   });
 

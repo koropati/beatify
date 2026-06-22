@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
+import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 
 class ProfilePage extends ConsumerWidget {
@@ -33,22 +35,42 @@ class ProfilePage extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const SizedBox(height: 40),
-                        CircleAvatar(
-                          radius: 52,
-                          backgroundColor: const Color(0xFF282828),
-                          backgroundImage: user.profilePictureUrl != null
-                              ? NetworkImage(user.profilePictureUrl!)
-                              : null,
-                          child: user.profilePictureUrl == null
-                              ? Text(
-                                  user.username[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    fontSize: 42,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                        GestureDetector(
+                          onTap: () => _pickAndUploadPhoto(context, ref),
+                          child: Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 52,
+                                backgroundColor: const Color(0xFF282828),
+                                backgroundImage: user.profilePictureUrl != null
+                                    ? NetworkImage(user.profilePictureUrl!)
+                                    : null,
+                                child: user.profilePictureUrl == null
+                                    ? Text(
+                                        user.username[0].toUpperCase(),
+                                        style: const TextStyle(
+                                          fontSize: 42,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF1DB954),
+                                    shape: BoxShape.circle,
                                   ),
-                                )
-                              : null,
+                                  child: const Icon(Icons.camera_alt,
+                                      size: 16, color: Colors.black),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -79,7 +101,7 @@ class ProfilePage extends ConsumerWidget {
                       _ProfileMenuItem(
                         icon: Icons.edit_outlined,
                         label: 'Edit Profile',
-                        onTap: () => _showEditProfileDialog(context, ref, user.username),
+                        onTap: () => _showEditProfileDialog(context, ref, user),
                       ),
                       _ProfileMenuItem(
                         icon: Icons.lock_outline,
@@ -126,14 +148,51 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-  void _showEditProfileDialog(BuildContext context, WidgetRef ref, String currentUsername) {
-    final controller = TextEditingController(text: currentUsername);
+  Future<void> _pickAndUploadPhoto(BuildContext context, WidgetRef ref) async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    final path = result?.files.single.path;
+    if (path == null) return;
+    if (!context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF1DB954)),
+      ),
+    );
+    final upload = await ref.read(authStateProvider.notifier).uploadProfilePicture(path);
+    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+    upload.fold(
+      (e) => messenger.showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      ),
+      (_) => messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Foto profil diperbarui!'),
+          backgroundColor: Color(0xFF1DB954),
+        ),
+      ),
+    );
+  }
+
+  void _showEditProfileDialog(BuildContext context, WidgetRef ref, UserEntity user) {
+    final usernameCtrl = TextEditingController(text: user.username);
+    final emailCtrl = TextEditingController(text: user.email);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF282828),
         title: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
-        content: _DialogTextField(controller: controller, label: 'Username'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _DialogTextField(controller: usernameCtrl, label: 'Username'),
+            const SizedBox(height: 12),
+            _DialogTextField(controller: emailCtrl, label: 'Email'),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -145,13 +204,22 @@ class ProfilePage extends ConsumerWidget {
               foregroundColor: Colors.black,
             ),
             onPressed: () async {
-              final username = controller.text.trim();
-              if (username.isEmpty || username == currentUsername) {
+              final username = usernameCtrl.text.trim();
+              final email = emailCtrl.text.trim();
+              if (username.isEmpty) {
+                Navigator.pop(ctx);
+                return;
+              }
+              final emailChanged = email.isNotEmpty && email != user.email;
+              if (username == user.username && !emailChanged) {
                 Navigator.pop(ctx);
                 return;
               }
               Navigator.pop(ctx);
-              final result = await ref.read(authStateProvider.notifier).updateProfile(username);
+              final result = await ref.read(authStateProvider.notifier).updateProfile(
+                    username,
+                    email: emailChanged ? email : null,
+                  );
               if (context.mounted) {
                 result.fold(
                   (e) => ScaffoldMessenger.of(context).showSnackBar(

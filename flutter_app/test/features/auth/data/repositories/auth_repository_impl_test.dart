@@ -156,14 +156,38 @@ void main() {
 
   group('updateProfile', () {
     test('success returns Right(UserEntity)', () async {
-      when(mockRemote.updateProfile(any)).thenAnswer((_) async => testUser);
+      when(mockRemote.updateProfile(any, email: anyNamed('email')))
+          .thenAnswer((_) async => testUser);
       final result = await repository.updateProfile('newname');
       expect(result.isRight(), true);
     });
 
+    test('passes email through to data source', () async {
+      when(mockRemote.updateProfile(any, email: anyNamed('email')))
+          .thenAnswer((_) async => testUser);
+      await repository.updateProfile('newname', email: 'x@test.com');
+      verify(mockRemote.updateProfile('newname', email: 'x@test.com')).called(1);
+    });
+
     test('data source throws → returns Left', () async {
-      when(mockRemote.updateProfile(any)).thenThrow(Exception('taken'));
+      when(mockRemote.updateProfile(any, email: anyNamed('email')))
+          .thenThrow(Exception('taken'));
       final result = await repository.updateProfile('newname');
+      expect(result.isLeft(), true);
+    });
+  });
+
+  group('uploadProfilePicture', () {
+    test('success returns Right(UserEntity)', () async {
+      when(mockRemote.uploadProfilePicture(any)).thenAnswer((_) async => testUser);
+      final result = await repository.uploadProfilePicture('/tmp/a.png');
+      expect(result.isRight(), true);
+      result.fold((_) => fail('expected Right'), (u) => expect(u.id, 1));
+    });
+
+    test('data source throws → returns Left', () async {
+      when(mockRemote.uploadProfilePicture(any)).thenThrow(Exception('bad image'));
+      final result = await repository.uploadProfilePicture('/tmp/a.png');
       expect(result.isLeft(), true);
     });
   });

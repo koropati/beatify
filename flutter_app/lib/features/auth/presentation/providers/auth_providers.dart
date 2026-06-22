@@ -78,9 +78,21 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserEntity?>> {
     state = const AsyncValue.data(null);
   }
 
-  Future<Either<Exception, void>> updateProfile(String username) async {
-    final result = await _repository.updateProfile(username);
-    result.fold((_) {}, (user) => state = AsyncValue.data(user));
+  Future<Either<Exception, void>> updateProfile(String username, {String? email}) async {
+    final result = await _repository.updateProfile(username, email: email);
+    await result.fold((_) async {}, (user) async {
+      await _repository.cacheUser(user);
+      state = AsyncValue.data(user);
+    });
+    return result.map((_) {});
+  }
+
+  Future<Either<Exception, void>> uploadProfilePicture(String filePath) async {
+    final result = await _repository.uploadProfilePicture(filePath);
+    await result.fold((_) async {}, (user) async {
+      await _repository.cacheUser(user);
+      state = AsyncValue.data(user);
+    });
     return result.map((_) {});
   }
 
